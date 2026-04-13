@@ -3,7 +3,7 @@
 """
 Created on Fri Oct 10 10:46:23 2025
 
-@author: anapiazzaf + Gemini
+@author: anapiazzaf
 
 """
 
