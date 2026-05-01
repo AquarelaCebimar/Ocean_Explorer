@@ -25,6 +25,7 @@ By accessing this codebase, you agree to the following terms:
 # How to cite:
 This software is an integral part of the ongoing research of Ana Paula Piazza Forgiarini at Aquarela Lab CEBIMar/USP.
 All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
+
 ---
 
 # Overview of processing phases
