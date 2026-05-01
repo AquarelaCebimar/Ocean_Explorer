@@ -10,7 +10,23 @@ This software is an integral part of the ongoing research of Ana Paula Piazza Fo
 All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
 
 
+# CONFIDENTIAL: RESEARCH EMBARGO NOTICE
 
+**Project:** Ocean_Explorer V1.beta  
+**Lead Researcher:** Ana Paula Piazza Forgiarini (anapiazzaf@gmail.com)  
+**Institution:** Aquarela Lab - CEBIMar / University of São Paulo (USP)
+
+### [READ BEFORE PROCEEDING]
+
+This repository contains **unpublished research code and methodologies**. Access is granted exclusively to authorized members of the current working group for collaborative development and testing purposes.
+
+By accessing this codebase, you agree to the following terms:
+1. **Confidentiality:** This code, its logic, and any generated outputs are under strict academic embargo. They must not be shared, duplicated, or distributed outside of this authorized group.
+2. **Intellectual Property:** All rights to the methodology and software architecture belong to the lead researcher and the affiliating institution.
+3. **Publication:** Use of this software in any publication, presentation, or report without the express written consent and co-authorship agreement of Ana Paula Piazza Forgiarini is strictly prohibited.
+4. **Attribution:** Any future public release will be managed by the lead researcher upon the completion of the official peer-reviewed publication.
+
+---
 
 # Overview of processing phases
 
