@@ -10,7 +10,9 @@ This software is an integral part of the ongoing research of Ana Paula Piazza Fo
 All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
 
 
-1.	Overview of processing phases
+
+
+##1.	Overview of processing phases
 
 The app follows a four-phase workflow to transform raw radiometric and physical data into Level-3 (L3) products.
 
