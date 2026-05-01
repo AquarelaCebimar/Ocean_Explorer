@@ -1,10 +1,17 @@
 
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct 10 10:46:23 2025
-Modified on 04/29/2026 by anapiazzaf
-
 @author: anapiazzaf - anapiazzaf@gmail.com
+# Ocean_Explorer V1.beta
+
+Author: Ana Paula Piazza Forgiarini (anapiazzaf@gmail.com)
+Created on Fri Oct 10 10:46:23 2025
+Modified in April 2026
+
+# How to cite:
+This software is an integral part of the ongoing research of Ana Paula Piazza Forgiarini at Aquarela Lab CEBIMar/USP.
+All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and 
+specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
 
 """
 
