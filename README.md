@@ -5,11 +5,6 @@ Ocean Optics Explorer - User Manual and Documentation
 Author: Ana Paula Piazza Forgiarini (anapiazzaf@gmail.com)
 Modified in April 2026
 
-# How to cite:
-This software is an integral part of the ongoing research of Ana Paula Piazza Forgiarini at Aquarela Lab CEBIMar/USP.
-All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
-
-
 # CONFIDENTIAL: RESEARCH EMBARGO NOTICE
 
 **Project:** Ocean_Explorer V1.beta  
@@ -26,6 +21,10 @@ By accessing this codebase, you agree to the following terms:
 3. **Publication:** Use of this software in any publication, presentation, or report without the express written consent and co-authorship agreement of Ana Paula Piazza Forgiarini is strictly prohibited.
 4. **Attribution:** Any future public release will be managed by the lead researcher upon the completion of the official peer-reviewed publication.
 
+
+# How to cite:
+This software is an integral part of the ongoing research of Ana Paula Piazza Forgiarini at Aquarela Lab CEBIMar/USP.
+All rights reserved. This code is shared for collaborative work within the research group. Please contact the author for formal permission and specific citation guidelines before using this software, its underlying logic, or generated outputs in any presentation, report, or publication.
 ---
 
 # Overview of processing phases
