@@ -1,7 +1,6 @@
 
 # -*- coding: utf-8 -*-
 """
-@author: anapiazzaf - anapiazzaf@gmail.com
 # Ocean_Explorer V1.beta
 
 Author: Ana Paula Piazza Forgiarini (anapiazzaf@gmail.com)
