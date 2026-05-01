@@ -12,7 +12,7 @@ All rights reserved. This code is shared for collaborative work within the resea
 
 
 
-##1.	Overview of processing phases
+# Overview of processing phases
 
 The app follows a four-phase workflow to transform raw radiometric and physical data into Level-3 (L3) products.
 
