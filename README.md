@@ -13,7 +13,7 @@ Modified in April 2026
 
 ### [READ BEFORE PROCEEDING]
 
-This repository contains **unpublished research code and methodologies**. Access is granted exclusively to authorized members of the current working group for collaborative development and testing purposes.
+This repository contains **unpublished research code**. Access is granted exclusively to authorized members of the current working group for collaborative development and testing purposes.
 
 By accessing this codebase, you agree to the following terms:
 1. **Confidentiality:** This code, its logic, and any generated outputs are under strict academic embargo. They must not be shared, duplicated, or distributed outside of this authorized group.
