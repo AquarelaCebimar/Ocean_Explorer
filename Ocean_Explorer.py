@@ -2,32 +2,35 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Oct 10 10:46:23 2025
+Modified on 04/29/2026 by anapiazzaf
 
-@author: anapiazzaf + Gemini
+@author: anapiazzaf - anapiazzaf@gmail.com
 
 """
 
-# ----------------------------- PACOTES NECESSÁRIOS -----------------------------
-# Seção de importação de todas as bibliotecas Python necessárias para o funcionamento do aplicativo.
+# ----------------------------- REQUIRED PACKAGES -----------------------------
+# Import section for all Python libraries required for the application to function.
 
-import streamlit as st  # Importa a biblioteca Streamlit para criar a interface web interativa.
-import pandas as pd  # Importa o Pandas para manipulação e análise de dados, especialmente DataFrames.
-import numpy as np  # Importa o NumPy para operações numéricas eficientes, especialmente com arrays.
-import matplotlib.pyplot as plt  # Importa o Matplotlib para a criação de gráficos estáticos.
-from matplotlib.patches import Polygon  # Importa a classe Polygon para desenhar o triângulo de mistura no diagrama T-S.
-import gsw  # Importa a biblioteca Gibbs SeaWater (GSW) para cálculos precisos de propriedades da água do mar (TEOS-10).
-import seaborn as sns  # Importa o Seaborn para criar paletas de cores mais bonitas para os gráficos.
-import io  # Importa o módulo io para manipular buffers de bytes em memória, usado para criar arquivos zip.
-import zipfile  # Importa o módulo zipfile para criar arquivos .zip dinamicamente.
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error  # Importa métricas de regressão para comparar dados de CTD.
-from matplotlib.ticker import ScalarFormatter
-from scipy.stats import linregress # Importa a função de regressão linear para os novos gráficos.
-import plotly.graph_objects as go  # Adicione esta linha
-#
-# ----------------------------- ESTILO E CONFIGURAÇÕES -----------------------------
-# Seção para definir a aparência visual dos gráficos e da página do Streamlit.
+import streamlit as st  # Imports the Streamlit library to create the interactive web interface.
+import pandas as pd  # Imports Pandas for data manipulation and analysis, especially DataFrames.
+import numpy as np  # Imports NumPy for efficient numerical operations, especially with arrays.
+import matplotlib.pyplot as plt  # Imports Matplotlib for creating static plots.
+from matplotlib.patches import Polygon  # Imports the Polygon class to draw the mixing triangle on the T-S diagram.
+import gsw  # Imports the Gibbs SeaWater (GSW) library for precise seawater property calculations (TEOS-10).
+import seaborn as sns  # Imports Seaborn to create more aesthetically pleasing color palettes for the plots.
+import io  # Imports the io module to handle in-memory byte buffers, used for creating zip files.
+import zipfile  # Imports the zipfile module to dynamically create .zip archives.
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error  # Imports regression metrics to compare CTD data.
+from matplotlib.ticker import ScalarFormatter # Imports ScalarFormatter for scientific notation on axes.
+from scipy.stats import linregress # Imports the linear regression function for the new plots.
+import plotly.graph_objects as go  # Imports Plotly for interactive plots.
+from scipy.integrate import simpson # Imports Simpson integral for spectral convolution
 
-# Dicionário que centraliza as definições de cores para criar um tema visual consistente (modo escuro).
+
+# ----------------------------- STYLE AND CONFIGURATIONS -----------------------------
+# Section to define the visual appearance of the plots and the Streamlit page.
+
+# Dictionary centralizing color definitions to create a consistent visual theme (dark mode).
 
 STYLE_CONFIG = {
     'facecolor':'#0E1117',
@@ -38,6 +41,8 @@ STYLE_CONFIG = {
     'n2_line_color':'#00FF00',
     'beta_line_color': '#FF8C00'
 }
+
+# Update Matplotlib's global parameters to match the dark mode theme.
 
 plt.rcParams.update({
     'figure.facecolor': STYLE_CONFIG['facecolor'],
@@ -50,18 +55,88 @@ plt.rcParams.update({
     'grid.color': STYLE_CONFIG['gridcolor']
 })
 
-st.set_page_config(layout="wide", page_title="Ocean Optics Explorer")
+# Streamlit page configuration (must be called once at the top of the script).
 
+st.markdown("""
+<style>
+/* 1. Força todos os wrappers a permitirem scroll */
+div[data-testid="stTabs"],
+div[data-testid="stTabs"] > div,
+div[data-testid="stTabs"] > div > div {
+    overflow: visible !important;
+}
+
+/* 2. Container real das abas - Estilização da Fita */
+div[data-testid="stTabs"] [role="tablist"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    gap: 12px !important;
+    padding-bottom: 10px !important;
+    scrollbar-width: auto !important;
+}
+
+/* 3. Botões das abas - Impede encolhimento e define fonte */
+div[data-testid="stTabs"] button[role="tab"] {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    border-radius: 5px 5px 0 0 !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"] p {
+    font-size: 16px !important; /* Tamanho médio legível */
+    font-weight: bold !important;
+}
+
+/* 4. Scrollbar visível e colorida */
+div[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar {
+    height: 8px;
+}
+div[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #A78BFA, #FF4B4B);
+    border-radius: 5px;
+}
+
+/* 5. PALETA ESPECTRAL (Target nos parágrafos dentro de cada botão) */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(1) p { color: #A78BFA !important; } /* Violet */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(2) p { color: #818CF8 !important; } /* Indigo */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(3) p { color: #60A5FA !important; } /* Blue */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(4) p { color: #22D3EE !important; } /* Cyan */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(5) p { color: #34D399 !important; } /* Green */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(6) p { color: #A3E635 !important; } /* Lime */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(7) p { color: #FACC15 !important; } /* Yellow */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(8) p { color: #FB923C !important; } /* Orange */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(9) p { color: #F87171 !important; } /* Red */
+div[data-testid="stTabs"] button[role="tab"]:nth-of-type(10) p { color: #FF4B4B !important; } /* Deep Red */
+
+/* 6. Destaque da Aba Ativa (Linha Branca) */
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    border-bottom: 2px solid white !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 # ----------------------------- CONSTANTS -----------------------------
+# Define core column names and standard values used throughout the application.
+
 PRESSURE_COL, TEMP_COL, COND_COL, WAVELENGTH_PREFIX, STATION_ID_COL = 'Depth', 'Temperature', 'Conductivity', 'X', 'station_id'
 FILE_KEYWORDS = {'temp':'temp', 'cond':'cond', 'ed':'ed', 'lu':'lu', 'beta': 'beta'}
 LW_TRANSMISSION_FACTOR = 0.54
 ED_TRANSMISSION_FACTOR = 0.96
 
-# ----------------------------- FUNÇÕES DE PROCESSAMENTO E CÁLCULO -----------------------------
+# ----------------------------- PROCESSING AND CALCULATION FUNCTIONS -----------------------------
 
 @st.cache_data
 def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
+    """
+    Processes the uploaded in-water profiler files, Es (surface irradiance), and Beta (backscattering proxy) files.
+    Matches keywords to identify each file type, cleans the data, interpolates to a common depth grid (if not already done), 
+    and packages everything into a dictionary mapped by station_id.
+    """
+    
     file_map = {}
     for f in profiler_files:
         fname_lower = f.name.lower()
@@ -75,6 +150,8 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
     if len(file_map) < 4:
         st.error(f"Upload failed. Expected at least 4 in-water files (temp, cond, ed, lu), found {len(file_map)}.")
         return None, None
+
+    # Common representations of missing data to be parsed as NaNs.
 
     possible_NA_values = ['#########', 'NA', 'N/A', 'Not a Number', 'missing', '-9999']
     try:
@@ -112,8 +189,13 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
 
         wave_cols = [col for col in df_ed.columns if col.startswith(WAVELENGTH_PREFIX)]
         wavelengths_temp = np.array([float(c.replace(WAVELENGTH_PREFIX, '')) for c in wave_cols])
+        
+        # Identify the column closest to 490nm to use as a baseline for valid optical data.
+
         idx_490 = (np.abs(wavelengths_temp - 490)).argmin()
         canary_col = wave_cols[idx_490]
+        
+        # Clean optical data based on the canary wavelength (must exist and be > 0).
 
         df_ed_clean = df_ed.dropna(subset=[canary_col])
         df_ed_clean = df_ed_clean[df_ed_clean[canary_col] > 0]
@@ -124,22 +206,52 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
         optical_min_depth = df_ed_clean[PRESSURE_COL].min()
         optical_max_depth = df_ed_clean[PRESSURE_COL].max()
         
+        # Create a master depth grid based on temperature depths that fall within the optical depth range.
+
         all_temp_depths = np.sort(df_temp[PRESSURE_COL].unique())
         master_pressure = all_temp_depths[(all_temp_depths >= optical_min_depth) & (all_temp_depths <= optical_max_depth)]
         
         if master_pressure.size < 2: continue
-
+    
         df_temp_clean = df_temp.dropna(subset=[TEMP_COL])
-        temp_data = np.interp(master_pressure, df_temp_clean[PRESSURE_COL], df_temp_clean[TEMP_COL])
-        
         df_cond_clean = df_cond.dropna(subset=[COND_COL])
+
+        # Gap evaluation. Calculates the maximum difference between valid depths to detect missing data blocks
+        
+        if not df_temp_clean.empty:
+            temp_depths_sorted = df_temp_clean[PRESSURE_COL].sort_values()
+            max_temp_gap = temp_depths_sorted.diff().max()
+
+            # If the largest gap is greater than 2 meters, emit a warning.
+            if pd.notna(max_temp_gap) and max_temp_gap > 2:
+                st.warning(
+                    f"**Caution for station '{station}':** Missing physical data detected. "
+                    f"Maximum depth gap is **{max_temp_gap:.1f} meters**. "
+                    f"Data has been linearly interpolated to maintain grid consistency, but physical parameters (like N²) may be distorted in this interval."
+                )
+
+        # If no data is left (or fewer than 2 points), interpolation is impossible.
+        if df_temp_clean.empty or len(df_temp_clean) < 2:
+            st.warning(f"Skipping station '{station}': Not enough Temperature data (too many NaNs).")
+            continue
+            
+        if df_cond_clean.empty or len(df_cond_clean) < 2:
+            st.warning(f"Skipping station '{station}': Not enough Conductivity data.")
+            continue
+
+        # Safe interpolation mapped to the master optical depth grid
+        temp_data = np.interp(master_pressure, df_temp_clean[PRESSURE_COL], df_temp_clean[TEMP_COL])
         cond_data = np.interp(master_pressure, df_cond_clean[PRESSURE_COL], df_cond_clean[COND_COL])
 
         wavelengths = np.array([float(c.replace(WAVELENGTH_PREFIX, '')) for c in wave_cols])
         
+        # Group, reindex, and interpolate Ed data.
+
         df_ed_grouped = df_ed[[PRESSURE_COL] + wave_cols].groupby(PRESSURE_COL).mean()
         ed_df_interp = df_ed_grouped.reindex(df_ed_grouped.index.union(master_pressure)).interpolate(method='index').loc[master_pressure]
         ed_data = ed_df_interp.values
+
+        # Group, reindex, and interpolate Lu data.
 
         df_lu_grouped = df_lu[[PRESSURE_COL] + wave_cols].groupby(PRESSURE_COL).mean()
         lu_df_interp = df_lu_grouped.reindex(df_lu_grouped.index.union(master_pressure)).interpolate(method='index').loc[master_pressure]
@@ -156,6 +268,8 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
             df_beta_clean = df_beta.dropna(subset=[PRESSURE_COL] + beta_cols, how='any')
             
             if not df_beta_clean.empty:
+                # Interpolate beta data onto the master pressure grid
+
                 df_beta_indexed = df_beta_clean.set_index(PRESSURE_COL)
                 combined_index = df_beta_indexed.index.union(master_pressure)
                 df_beta_aligned = df_beta_indexed.reindex(combined_index).interpolate(method='index')
@@ -164,6 +278,8 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
                     st.warning(f"For station '{station}', beta data was found but had no overlapping depth range with the main profile.")
             else:
                  st.warning(f"For station '{station}', the uploaded beta file contained no valid numeric data rows.")
+                 
+        # Package the successfully processed data for this station.
 
         station_data_package[station] = {
             'pressure': master_pressure, 'temperature': temp_data, 'conductivity': cond_data,
@@ -177,6 +293,10 @@ def process_uploaded_files(profiler_files, es_file=None, beta_file=None):
 
 
 def analyze_mixture(SA, CT, vertices, names):
+    """
+   Calculates water mass mixing fractions using barycentric coordinates 
+   based on a defined T-S (Temperature-Salinity) mixing triangle.
+   """
     p1, p2, p3 = np.array(vertices[0]), np.array(vertices[1]), np.array(vertices[2])
     mixing_percentages = []
     def get_barycentric_coords(p, a, b, c):
@@ -190,6 +310,9 @@ def analyze_mixture(SA, CT, vertices, names):
         return u, v, w
     for sal, temp in zip(SA, CT):
         point = np.array([sal, temp])
+        
+        # Only accept points that fall strictly inside (or on the edges of) the triangle
+
         w3, w1, w2 = get_barycentric_coords(point, p3, p1, p2)
         if w1 >= -1e-9 and w2 >= -1e-9 and w3 >= -1e-9:
             mixing_percentages.append((w1, w2, w3))
@@ -201,34 +324,39 @@ def analyze_mixture(SA, CT, vertices, names):
     return avg_text, df_mix
 
 def perform_convolution(prof_wl, lw_hyperspectral, ed_hyperspectral, srf_wl, srf_response):
-    """
-    Performs spectral convolution on Lw and Ed independently before division.
     
-    Args:
-        prof_wl (np.array): Wavelengths from the profiler.
-        lw_hyperspectral (np.array): Hyperspectral water-leaving radiance (Lw).
-        ed_hyperspectral (np.array): Hyperspectral downwelling irradiance (Ed or Es).
-        srf_wl (np.array): Wavelengths from the SRF file.
-        srf_response (np.array): The spectral response for a single satellite band.
-        
-    Returns:
-        float: The convolved Rrs for the band.
     """
+    Performs spectral convolution on Lw and Ed independently before division
+    to simulate multi-spectral satellite bands (e.g., MODIS, Sentinel-3).
+    
+    Methodology follows Burggraaff (2020) to avoid convolution biases: 
+    Reflectance (Rrs) is NOT convolved directly. Instead, the numerator (Lw) 
+    and denominator (Ed) are convolved independently using Simpson's rule.
+    """
+    
     # Step 1: Interpolate the satellite's SRF onto the profiler's wavelength grid.
     srf_interp = np.interp(prof_wl, srf_wl, srf_response, left=0, right=0)
     
-    # Step 2: Calculate the integrated numerator and denominator from the formula.
-    # The integral (∫) becomes a summation (np.sum) for discrete data.
-    lw_integrated = np.sum(lw_hyperspectral * srf_interp)
-    ed_integrated = np.sum(ed_hyperspectral * srf_interp)
+    # Step 2: Define the integrands
+    lw_integrand = lw_hyperspectral * srf_interp
+    ed_integrand = ed_hyperspectral * srf_interp
     
-    # Step 3: Calculate the final band-specific Rrs. Avoid division by zero.
+    # Step 3: Perform numerical integration using Simpson's Rule
+    # This accounts for potentially non-uniform wavelength spacing (dx)
+    lw_integrated = simpson(y=lw_integrand, x=prof_wl)
+    ed_integrated = simpson(y=ed_integrand, x=prof_wl)
+    
+    # Step 4: Calculate the final band-specific Rrs. Avoid division by zero.
     if ed_integrated > 0:
         return lw_integrated / ed_integrated
     else:
         return np.nan
 
-def calculate_derived_products(station_data, station_id, analysis_layers): # <-- Added station_id here
+def calculate_derived_products(station_data, station_id, analysis_layers):
+    """
+    Computes Apparent Optical Properties (AOPs) including spectral Kd, Klu, 
+    propagated Rrs(0+), and Kd(PAR) for user-defined depth layers.
+    """
     if not analysis_layers or not station_data: return None
     pressure, ed_data, lu_data, wavelengths = station_data['pressure'], station_data['Ed_data'], station_data['Lu_data'], station_data['wavelengths']
     es_for_rrs = st.session_state.get('new_es_median', station_data.get('Es'))
@@ -237,10 +365,14 @@ def calculate_derived_products(station_data, station_id, analysis_layers): # <--
     df_kw = get_kw_data(selected_model); kw_interp = np.interp(wavelengths, df_kw['wavelength'], df_kw['Kw'])
     initial_rrs = calculate_Rrs(ed_data, lu_data, pressure, es_data=es_for_rrs)
     rrs_dict['initial_rrs_sr-1'] = initial_rrs
+    
     for layer_num, data in analysis_layers.items():
         z_min, z_max = data['range']
         kd_raw, klu_raw = calculate_k_spectra(pressure, ed_data, lu_data, wavelengths, z_min, z_max)
+        
         if klu_raw is not None and kd_raw is not None:
+            # Force K values to be at least equal to pure water absorption (Kw). Here we can choose between Morel and 
+            
             kd_corrected, klu_corrected = np.maximum(kd_raw, kw_interp), np.maximum(klu_raw, kw_interp)
             layer_k_data[layer_num] = (kd_corrected, klu_corrected)
             prop_rrs = calculate_Rrs(ed_data, lu_data, pressure, es_data=es_for_rrs, kd=kd_corrected, klu=klu_corrected, z_top=z_min)
@@ -252,6 +384,9 @@ def calculate_derived_products(station_data, station_id, analysis_layers): # <--
         else:
             results_data.append({'Layer':f"Layer {layer_num}", 'Depth Range (m)':f"{z_min}-{z_max}", 'Kd(490)':np.nan, 'klu(490)':np.nan})
     results_df = pd.DataFrame(results_data)
+    
+    # Calculate PAR using quantum conversion
+
     h, c, N_A = 6.62607015e-34, 2.99792458e8, 6.02214076e23; par_wl_range = np.arange(400, 701, 1)
     valid_indices = np.where((wavelengths >= 400) & (wavelengths <= 700))[0]
     sub_wl, sub_ed = wavelengths[valid_indices], ed_data[:, valid_indices]
@@ -261,11 +396,11 @@ def calculate_derived_products(station_data, station_id, analysis_layers): # <--
     kd_par_results = calculate_kd_par(pressure, par_profile_profiler, analysis_layers)
     kd_par_df = pd.DataFrame([{'Layer': f"Layer {ln}", 'Kd(PAR)': val} for ln, val in kd_par_results.items()])
     
-    # --- Collect data for the empirical model with context ---
+    # Collect data for the empirical model with context
     if not results_df.empty and not kd_par_df.empty:
         model_data_source = pd.merge(results_df, kd_par_df, on="Layer")
         
-        # ---  Explicitly define the column order ---
+        # Explicitly define the column order
         new_model_data = pd.DataFrame({
             'Station_ID': station_id,
             'Layer': model_data_source['Layer'],
@@ -280,8 +415,14 @@ def calculate_derived_products(station_data, station_id, analysis_layers): # <--
     return { "layer_k_data": layer_k_data, "results_df": results_df, "kd_par_df": kd_par_df, "rrs_df_export": pd.DataFrame(rrs_dict), "k_df_export": pd.DataFrame(k_dict) }
 
 def find_n2_peak(depth, temp, sal, lat):
-    """Calcula N2 e encontra a profundidade do pico máximo (picnoclina)."""
-    # Remove NaNs e ordena
+    
+    """
+   Calculates N2 (Brunt-Väisälä frequency squared) using TEOS-10 
+   and finds the depth of the maximum stability peak (pycnocline).
+   """
+   
+    # Removes NaNs and sorts by depth
+    
     df = pd.DataFrame({'p': depth, 't': temp, 'sp': sal}).dropna().sort_values('p')
     if len(df) < 5: return None, None, None
 
@@ -292,15 +433,18 @@ def find_n2_peak(depth, temp, sal, lat):
     # Suaviza para evitar ruídos
     n2_smooth = pd.Series(n2).values#.rolling(window=3, center=True).mean().values
     
-    # Ignora os primeiros 2 metros para evitar ruído de superfície
-    valid_idx = np.where(p_mid > 2.0)[0]
+    # Ignores the first 1 meters to avoid surface noise/artifacts
+    
+    valid_idx = np.where(p_mid > 1.0)[0]
     if len(valid_idx) == 0: return p_mid, n2_smooth, None
     
     peak_idx = valid_idx[np.nanargmax(n2_smooth[valid_idx])]
     return p_mid, n2_smooth, p_mid[peak_idx]
 
 def _handle_secchi_upload():
+    
     """Callback function to process the master secchi file upload."""
+    
     if st.session_state.master_secchi_loader is None:
         return
     try:
@@ -308,16 +452,14 @@ def _handle_secchi_upload():
         expected_cols = ['Station_ID', 'Secchi', 'Kd(PAR)_Profiler', 'Kd(490)_Profiler', 'Kd(PAR)_External']
         if all(col in df_loaded.columns for col in expected_cols):
 
-            # 1. Get a clean copy of the data from the CURRENT session.
+            # Get a clean copy of the data from the CURRENT session.
             df_session = st.session_state.master_kd_secchi_df.copy()
 
-            # 2. Combine the session data FIRST, then the loaded data.
+            # Combine the session data FIRST, then the loaded data.
             combined_df = pd.concat([df_session, df_loaded], ignore_index=True)
 
-            # 3. De-duplicate, keeping the FIRST instance of any Station.
-            # This prioritizes any data you've added or updated in the current session.
+            # De-duplicate, keeping the FIRST instance of any Station. This prioritizes any data you've added or updated in the current session.
             combined_df.drop_duplicates(subset=['Station_ID'], keep='first', inplace=True)
-            # --- END OF FIX ---
             
             st.session_state.master_kd_secchi_df = combined_df
             st.session_state.notification = {'type': 'success', 'message': f"Successfully loaded and merged {len(df_loaded)} master Secchi data points."}
@@ -327,7 +469,9 @@ def _handle_secchi_upload():
         st.session_state.notification = {'type': 'error', 'message': f"Failed to read file: {e}"}
 
 def _handle_model_upload():
+    
     """Callback function to process the master model file upload."""
+    
     if st.session_state.master_model_loader is None:
         return
     try:
@@ -335,17 +479,15 @@ def _handle_model_upload():
         expected_cols = ['Station_ID', 'Layer', 'Kd(PAR)', 'Kd(490)']
         if all(col in df_loaded.columns for col in expected_cols):
 
-            # --- THIS IS THE CORRECTED MERGE LOGIC ---
-            # 1. Get a clean copy of the data from the CURRENT session.
+            # Get a clean copy of the data from the CURRENT session.
             df_session = st.session_state.empirical_model_data.copy()
 
-            # 2. Combine the session data FIRST, then the loaded data.
+            # Combine the session data FIRST, then the loaded data.
             combined_df = pd.concat([df_session, df_loaded], ignore_index=True)
 
-            # 3. De-duplicate, keeping the FIRST instance of any Station/Layer combo.
-            # Since the session data came first, it is ALWAYS prioritized.
+            # De-duplicate, keeping the FIRST instance of any Station/Layer combo. Since the session data came first, it is ALWAYS prioritized.
+            
             combined_df.drop_duplicates(subset=['Station_ID'], keep='first', inplace=True)
-            # --- END OF FIX ---
 
             st.session_state.empirical_model_data = combined_df
             st.session_state.notification = {'type': 'success', 'message': f"Successfully loaded and merged {len(df_loaded)} model data points."}
@@ -355,23 +497,26 @@ def _handle_model_upload():
         st.session_state.notification = {'type': 'error', 'message': f"Failed to read file: {e}"}
         
 def generate_summary_report(station_id, analysis_layers, results_df, kd_par_df, wm_profiler=None, wm_external=None):
+    
+    """Generates a formatted text report with campaign metadata and optical results."""
+
     report = io.StringIO()
     report.write("============================================================\n")
-    report.write(f"      OCEAN OPTICS EXPLORER - L3 SUMMARY REPORT\n")
-    report.write(f"      Station ID: {station_id}\n")
+    report.write("      OCEAN OPTICS EXPLORER - L3 SUMMARY REPORT\n")
+    report.write("      Station ID: {station_id}\n")
     report.write("============================================================\n\n")
 
     report.write("--- 1. CAMPAIGN METADATA ---\n")
     report.write(f"Position: {st.session_state.lat:.5f}, {st.session_state.lon:.5f}\n")
-    report.write(f"Depth Offset Applied (Jimmy): {st.session_state.get('last_applied_offset_str', '0.00')} m\n\n")
+    report.write(f"Depth Offset Applied (Profiler): {st.session_state.get('last_applied_offset_str', '0.00')} m\n\n")
 
-    report.write("--- 2. PROFILER (JIMMY) OPTICAL RESULTS ---\n")
+    report.write("--- 2. PROFILER OPTICAL RESULTS ---\n")
     if results_df is not None:
         for _, row in results_df.iterrows():
             ln = row['Layer']
             
-            # --- CORREÇÃO: BUSCAR O RANGE DE PROFUNDIDADE ---
-            # Tenta extrair o número do layer (ex: "Layer 1" -> 1)
+            # Attempts to extract the layer number (e.g., "Layer 1" -> 1) to fetch depth ranges
+
             try:
                 layer_num = int(ln.split(' ')[1])
                 if analysis_layers and layer_num in analysis_layers:
@@ -381,18 +526,18 @@ def generate_summary_report(station_id, analysis_layers, results_df, kd_par_df, 
                     report.write(f"{ln} (Depth range not found):\n")
             except:
                 report.write(f"{ln}:\n")
-            # -----------------------------------------------
 
             report.write(f"  - Kd(490):  {row['Kd(490)']:.4f} m⁻¹\n")
             
-            # Adiciona Kd(PAR) se disponível
+            # Adds Kd(PAR) if available for this specific layer
+            
             if kd_par_df is not None:
-                # Filtra o Kd(PAR) correspondente a este Layer
                 kpar_val = kd_par_df[kd_par_df['Layer'] == ln]['Kd(PAR)'].values
                 if len(kpar_val) > 0:
                     report.write(f"  - Kd(PAR):  {kpar_val[0]:.4f} m⁻¹\n")
             
-            # Adiciona AVW (Cor) se disponível
+            # Adds Color (Apparent Visible Wavelength - AVW) if available
+            
             idx = ln.split(" ")[1]
             c_rrs = f'propagated_rrs_L{idx}_sr-1'
             if st.session_state.derived_products and c_rrs in st.session_state.derived_products['rrs_df_export'].columns:
@@ -401,7 +546,7 @@ def generate_summary_report(station_id, analysis_layers, results_df, kd_par_df, 
                 avw_val = calculate_avw(wls, rrs_v)
                 report.write(f"  - Color (AVW): {avw_val:.1f} nm\n")
             
-            report.write("\n") # Linha em branco entre camadas
+            report.write("\n")  # Blank line between layers
 
     report.write("--- 3. EXTERNAL PROBE VALIDATION ---\n")
     if st.session_state.comparison_kd_df is not None:
@@ -416,7 +561,7 @@ def generate_summary_report(station_id, analysis_layers, results_df, kd_par_df, 
 
     report.write("\n--- 4. WATER MASS FRACTIONS (Average %) ---\n")
     
-    report.write("  > From Profiler (Jimmy):\n")
+    report.write("  > From Profiler:\n")
     if wm_profiler is not None:
         for n in st.session_state.wm_names: 
             report.write(f"    - {n}: {wm_profiler[n].mean()*100:.1f}%\n")
@@ -434,7 +579,9 @@ def generate_summary_report(station_id, analysis_layers, results_df, kd_par_df, 
     return report.getvalue()
 
 def calculate_avw(wavelengths, rrs_spectrum):
-    """Calcula o Apparent Visible Wavelength (AVW) entre 400 e 700 nm."""
+    
+    """Calculates the Apparent Visible Wavelength (AVW) between 400 and 700 nm."""
+    
     mask = (wavelengths >= 400) & (wavelengths <= 700)
     w = wavelengths[mask]
     r = rrs_spectrum[mask]
@@ -444,7 +591,9 @@ def calculate_avw(wavelengths, rrs_spectrum):
     return np.nansum(r[valid] * w[valid]) / np.nansum(r[valid])
 
 def wavelength_to_hex(wavelength):
-    """Mapeia o AVW para uma cor Hexadecimal para a interface."""
+    
+    """Maps the calculated AVW to a Hexadecimal color string for UI visualization."""
+
     if pd.isna(wavelength): return "#808080"
     cmap = plt.get_cmap('turbo')
     norm = plt.Normalize(vmin=400, vmax=700)
@@ -452,10 +601,16 @@ def wavelength_to_hex(wavelength):
     return f"#{int(rgba[0]*255):02x}{int(rgba[1]*255):02x}{int(rgba[2]*255):02x}"
 
 def calculate_physical_properties(_station_data, lon, lat):
+    
+    """Computes derived physical properties (Salinity, Density, N2) using GSW (TEOS-10)."""
+    
     pressure, temp, cond = _station_data['pressure'], _station_data['temperature'], _station_data['conductivity']; salinity=gsw.SP_from_C(cond, temp, pressure); SA=gsw.SA_from_SP(salinity, pressure, lon, lat); CT=gsw.CT_from_t(SA, temp, pressure); n2, p_mid=gsw.Nsquared(SA, CT, pressure); n2_padded=np.append(n2, [np.nan]*(len(pressure)-len(n2))); p_mid_padded=np.append(p_mid, [np.nan]*(len(pressure)-len(p_mid)))
     return pd.DataFrame({'Depth':pressure, 'Salinity':SA, 'Temperature':CT, 'n2':n2_padded, 'p_mid':p_mid_padded})
 
 def calculate_k_spectra(pressure, ed_data, lu_data, wavelengths, z_min, z_max):
+    
+    """Calculates the diffuse attenuation coefficients (Kd and Klu) for a specific depth layer."""
+    
     indices=np.where((pressure>=z_min)&(pressure<=z_max));
     if len(indices[0]) < 2: return None, None
     depths, ed_range, lu_range=pressure[indices], ed_data[indices], lu_data[indices]; kd, klu=[], []
@@ -465,24 +620,27 @@ def calculate_k_spectra(pressure, ed_data, lu_data, wavelengths, z_min, z_max):
         klu.append(-np.polyfit(depths[valid_lu], np.log(lu_slice[valid_lu]), 1)[0] if np.sum(valid_lu) >= 2 else np.nan)
     return np.array(kd), np.array(klu)
 
-def get_profile_metric_data(df, lat=-24.0):
+def get_profile_metric_data(df, lat=-24.0): # Can change def lat
+    
     """
-    Retorna (Depth, Valor, Nome).
-    Lógica Automática:
-    1. N2 do Arquivo (Melhor)
-    2. N2 Calculado (Se tiver Sal/Cond)
-    3. Gradiente de Temperatura (Se tiver só Temp) -> Termoclina
+    Returns (Depth, Value, Metric_Name) for plotting and profile alignment.
+    Automatic fallback logic:
+    1. Provided N2 (Best - from file)
+    2. Calculated N2 (If Temp + Sal/Cond are available)
+    3. Temperature Gradient (If only Temp is available) -> Thermocline
     """
+    
     try:
         df = df.sort_values('Depth')
         
-        # --- CASO 1: N2 PRONTO ---
+        # CASE 1: N2 PROVIDED IN FILE 
+
         if 'N2_Provided' in df.columns:
             valid = df.dropna(subset=['Depth', 'N2_Provided'])
             if not valid.empty:
                 return valid['Depth'].values, valid['N2_Provided'].values, "N² (Do Arquivo)"
 
-        # --- CASO 2: CALCULAR N2 (Precisa de Sal ou Cond) ---
+        # CASE 2: CALCULATE N2 (Needs Salinity or Conductivity)
         has_sal = 'Salinity' in df.columns
         has_cond = 'Conductivity' in df.columns
         
@@ -497,6 +655,9 @@ def get_profile_metric_data(df, lat=-24.0):
                 if has_sal:
                     sp = valid['Salinity'].values
                 else:
+                    
+                    # Convert conductivity units if necessary (uS/cm to mS/cm)
+
                     cond = valid['Conductivity'].values
                     if np.nanmean(cond) > 100: cond = cond / 1000.0
                     sp = gsw.SP_from_C(cond, t, p)
@@ -505,16 +666,18 @@ def get_profile_metric_data(df, lat=-24.0):
                 CT = gsw.CT_from_t(SA, t, p)
                 n2, p_mid = gsw.Nsquared(SA, CT, p, lat)
                 
-                # Suavização leve para visualização
+                # Light smoothing for visualization purposes
+                
                 n2_smooth = pd.Series(n2).rolling(window=3, center=True).mean().values
                 return p_mid, n2_smooth, "N² (Calculado)"
 
-        # --- CASO 3: APENAS TEMPERATURA (Gradiente Térmico) ---
+        # CASE 3: TEMPERATURE ONLY (Thermal Gradient) 
         valid = df.dropna(subset=['Depth', 'Temperature'])
         if not valid.empty:
             p, t = valid['Depth'].values, valid['Temperature'].values
             
-            # Calcula Gradiente (Pico na Termoclina)
+            # Calculates the vertical gradient (Peaks at the thermocline)
+            
             dz = np.gradient(p)
             dt = np.gradient(t)
             
@@ -523,16 +686,21 @@ def get_profile_metric_data(df, lat=-24.0):
             
             dtdz_smooth = pd.Series(dtdz).rolling(window=5, center=True).mean().values
             
-            return p, dtdz_smooth, "Gradiente Térmico |dT/dz|"
+            return p, dtdz_smooth, "Thermal Gradient |dT/dz|"
 
-        return None, None, "Erro: Sem dados"
+        return None, None, "Error: No data"
 
-    except Exception: return None, None, "Erro Processamento"
+    except Exception: return None, None, "Processing Error"
+    
+    
 def extrapolate_ed0_minus(pressure, ed_data, z_min, z_max):
+    
     """
-    Extrapolates Ed(0-) from a stable layer using log-linear regression.
-    Returns a numpy array of the Ed(0-) spectrum.
+    Extrapolates the downwelling irradiance just below the surface, Ed(0-), 
+    from a stable, user-defined sub-surface layer using log-linear regression.
+    Returns a 1D numpy array representing the Ed(0-) spectrum.
     """
+    
     indices = np.where((pressure >= z_min) & (pressure <= z_max))
     if len(indices[0]) < 2:
         return np.full(ed_data.shape[1], np.nan)
@@ -546,6 +714,8 @@ def extrapolate_ed0_minus(pressure, ed_data, z_min, z_max):
         valid_mask = (ed_slice > 0) & (~np.isnan(ed_slice))
         
         if np.sum(valid_mask) >= 2:
+            # Polyfit degree 1 on natural log of Ed vs depth. The intercept represents ln(Ed) at depth 0. Exponentiating it gives Ed(0-).
+            
             _, intercept = np.polyfit(depths_in_layer[valid_mask], np.log(ed_slice[valid_mask]), 1)
             ed0_extrapolated.append(np.exp(intercept))
         else:
@@ -554,13 +724,17 @@ def extrapolate_ed0_minus(pressure, ed_data, z_min, z_max):
     return np.array(ed0_extrapolated)
 
 def load_castaway_ctd(uploaded_file):
+    
     """
-    Lê o arquivo processado do Castaway.
-    - Prioriza 'calc_sal' se 'sal' estiver vazia.
-    - Identifica 'N2' corretamente.
+    Reads and parses a processed Castaway CTD file.
+    - Features smart column mapping (case-insensitive).
+    - Prioritizes 'calc_sal' if 'sal' is empty.
+    - Correctly identifies pre-calculated 'N2' from the file.
     """
+    
     try:
-        # Tenta ler (vírgula ou ponto-e-vírgula)
+        # Attempts to read using comma or semicolon as separator
+        
         try:
             uploaded_file.seek(0)
             df = pd.read_csv(uploaded_file)
@@ -570,15 +744,15 @@ def load_castaway_ctd(uploaded_file):
         except Exception:
             return None
 
-        # 1. Padronizar nomes (tudo minúsculo e sem espaços)
-        # Isso garante que ' N2 ' vire 'n2' e 'Temp' vire 'temp'
+        # 1. Standardize column names (lowercase, stripped of whitespaces)
+
         df.columns = [c.strip().lower() for c in df.columns]
 
-        # 2. Mapeamento Inteligente (Prioridades)
-        # Vamos criar um novo DataFrame só com o que importa para evitar duplicatas
+        # 2. Smart Mapping (Priorities). Creates a clean DataFrame to avoid duplicates and standardizes naming
         df_clean = pd.DataFrame()
 
-        # --- PROFUNDIDADE ---
+        # Depth/Pressure
+        
         if 'depth' in df.columns: df_clean['Depth'] = df['depth']
         elif 'press' in df.columns: df_clean['Depth'] = df['press']
         elif 'pressure' in df.columns: df_clean['Depth'] = df['pressure']
@@ -586,21 +760,22 @@ def load_castaway_ctd(uploaded_file):
             st.error("Coluna de profundidade (depth/press) não encontrada.")
             return None
 
-        # --- TEMPERATURA ---
+        # Temperature
+        
         if 'temp' in df.columns: df_clean['Temperature'] = df['temp']
         elif 'temperature' in df.columns: df_clean['Temperature'] = df['temperature']
         else:
             st.error("Coluna de temperatura (temp) não encontrada.")
             return None
 
-        # --- N2 (Do arquivo) ---
+        #  N2 (From file) 
         if 'n2' in df.columns: 
             df_clean['N2_Provided'] = df['n2']
         elif 'press_n2' in df.columns: # Caso raro
             df_clean['N2_Provided'] = df['press_n2']
 
-        # --- SALINIDADE (Prioriza calc_sal, depois sal) ---
-        # Verifica qual coluna tem mais dados válidos (não nulos)
+        # SALINITY (Prioritizes calculated salinity over raw salinity)
+        
         col_sal = None
         if 'calc_sal' in df.columns and df['calc_sal'].count() > 0:
             col_sal = 'calc_sal'
@@ -612,12 +787,12 @@ def load_castaway_ctd(uploaded_file):
         if col_sal:
             df_clean['Salinity'] = df[col_sal]
         
-        # --- CONDUTIVIDADE (Backup) ---
+        # CONDUCTIVITY (Backup if Salinity is missing)
         if 'cond' in df.columns: df_clean['Conductivity'] = df['cond']
         elif 'conductivity' in df.columns: df_clean['Conductivity'] = df['conductivity']
 
-        # 3. Limpeza Numérica
-        # Corrige virgula para ponto se necessario e converte para numeros
+        # 3. Numeric Cleaning. Corrects commas to dots for floating points and coerces to numeric
+        
         for col in df_clean.columns:
             if df_clean[col].dtype == 'object':
                 try:
@@ -626,7 +801,8 @@ def load_castaway_ctd(uploaded_file):
                     pass
             df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
 
-        # Remove linhas onde a profundidade é vazia
+        # Removes rows where depth is empty
+        
         return df_clean.dropna(subset=['Depth'])
 
     except Exception as e:
@@ -634,27 +810,30 @@ def load_castaway_ctd(uploaded_file):
         return None
 
 def get_profile_n2_data(df, lat=-24.0): #sem smoothing
+    
     """
-    Retorna vetores Depth e N2. 
-    - Se for Castaway: Usa a coluna 'N2_Provided' SEM SUAVIZAÇÃO (Dados brutos do arquivo).
-    - Se for Jimmy: Calcula N2 usando GSW.
+    Returns Depth and N2 vectors for plotting and alignment.
+    - If Castaway (External): Uses 'N2_Provided' WITHOUT smoothing (raw file data).
+    - If Profiler (Profiler): Calculates N2 using GSW library.
     """
+    
     try:
-        # Ordena por profundidade para o gráfico sair correto
+        # Sorts by depth to ensure the plot renders correctly
         df = df.sort_values('Depth')
         
-        # --- CASO 1: CASTAWAY (Já tem N2 pronto) ---
+        # CASE 1: CASTAWAY (N2 is already provided)
         if 'N2_Provided' in df.columns:
-            # Filtra apenas linhas onde Depth e N2 existem
+            
             valid = df.dropna(subset=['Depth', 'N2_Provided'])
             
             if not valid.empty:
-                # RETORNAR DADOS BRUTOS (Igual ao Excel)
-                # Removemos o .rolling() que estava suavizando o pico
+                
+                # Returns RAW data (matches vendor software output exactly)
+
                 return valid['Depth'].values, valid['N2_Provided'].values
 
-        # --- CASO 2: JIMMY (Precisa Calcular) ---
-        # (Lógica permanece a mesma, pois Jimmy não tem coluna N2)
+        # CASE 2: PROFILER (Requires computation)
+        
         cols_req = ['Depth', 'Temperature']
         if 'Conductivity' in df.columns: cols_req.append('Conductivity')
         elif 'Salinity' in df.columns: cols_req.append('Salinity')
@@ -677,71 +856,22 @@ def get_profile_n2_data(df, lat=-24.0): #sem smoothing
         CT = gsw.CT_from_t(SA, t, p)
         n2, p_mid = gsw.Nsquared(SA, CT, p, lat)
         
-        # Aqui no calculado mantemos uma leve suavização pois o dado calculado oscila muito
-        n2_smooth = pd.Series(n2).values#.rolling(window=3, center=True).mean().values
+        # Retains light smoothing for calculated data due to numerical noise. Its is commented at the moment
+        n2_smooth = pd.Series(n2).values#.rolling(window=3, center=True).mean().values 
         return p_mid, n2_smooth
 
     except Exception as e:
-        # print(f"Debug N2 Error: {e}")
+        print(f"Debug N2 Error: {e}")
         return None, None
-# def get_profile_n2_data(df, lat=-24.0): #com smoothing
-#     """
-#     Retorna vetores Depth e N2.
-#     - Se for Castaway: Usa a coluna 'N2_Provided' direta.
-#     - Se for Jimmy: Calcula N2 usando GSW (Temp + Cond/Sal).
-#     """
-#     try:
-#         df = df.sort_values('Depth')
-        
-#         # --- CASO 1: CASTAWAY (Já tem N2 pronto) ---
-#         if 'N2_Provided' in df.columns:
-#             # Pega dados válidos
-#             valid = df.dropna(subset=['Depth', 'N2_Provided'])
-#             if not valid.empty:
-#                 # Retorna direto (pode suavizar levemente se quiser, window=3)
-#                 n2_val = valid['N2_Provided'].rolling(window=3, center=True).mean().fillna(valid['N2_Provided']).values
-#                 return valid['Depth'].values, n2_val
-
-#         # --- CASO 2: JIMMY (Precisa Calcular) ---
-#         # Remove NaNs
-#         cols_req = ['Depth', 'Temperature']
-#         if 'Conductivity' in df.columns: cols_req.append('Conductivity')
-#         elif 'Salinity' in df.columns: cols_req.append('Salinity')
-#         else: return None, None # Sem dados
-        
-#         df_calc = df.dropna(subset=cols_req)
-#         if df_calc.empty: return None, None
-
-#         p = df_calc['Depth'].values
-#         t = df_calc['Temperature'].values
-        
-#         # Define Salinidade
-#         if 'Salinity' in df_calc.columns:
-#             sp = df_calc['Salinity'].values
-#         else:
-#             cond = df_calc['Conductivity'].values
-#             if np.nanmean(cond) > 100: cond = cond / 1000.0 # uS -> mS
-#             sp = gsw.SP_from_C(cond, t, p)
-            
-#         # Calcula N2
-#         SA = gsw.SA_from_SP(sp, p, -45, lat)
-#         CT = gsw.CT_from_t(SA, t, p)
-#         n2, p_mid = gsw.Nsquared(SA, CT, p, lat)
-        
-#         # Ajuste de tamanho (p_mid é N-1, então interpolamos para visualizar fácil)
-#         # Ou simplesmente usamos p_mid e suavizamos o N2
-#         n2_smooth = pd.Series(n2).rolling(window=5, center=True).mean().values
-        
-#         return p_mid, n2_smooth
-
-#     except Exception as e:
-#         return None, None    
+    
 
 def calculate_Rrs(ed_data, lu_data, pressure, es_data=None, kd=None, klu=None, z_top=None):
+    
     """
-    Calculates the "Above-Water" Rrs = Lw / Es, with a rigorous denominator hierarchy.
+    Calculates the "Above-Water" Remote Sensing Reflectance (Rrs = Lw / Es), 
+    with a rigorous denominator hierarchy depending on data availability.
     """
-    # --- STEP 1: Calculate Water-Leaving Radiance, Lw(0+) ---
+    # STEP 1: Calculate Water-Leaving Radiance, Lw(0+)
     
     use_propagation = all(param is not None for param in [kd, klu, z_top])
 
@@ -758,33 +888,44 @@ def calculate_Rrs(ed_data, lu_data, pressure, es_data=None, kd=None, klu=None, z
             val = lu_calc * np.exp(klu[i] * z_calc); lu_sub_list.append(val)
         lu_sub = np.array(lu_sub_list)
     else:
+        # Fallback: take the shallowest valid raw median
         valid_lu_indices = np.where(np.nanmedian(lu_data, axis=1) > 0)[0]
         lu_sub = lu_data[valid_lu_indices[0], :] if len(valid_lu_indices) > 0 else np.full(lu_data.shape[1], np.nan)
 
+    # Transmission of Lu(0-) to Lw(0+) across the air-sea interface
     lw_spectrum = lu_sub * LW_TRANSMISSION_FACTOR
 
-    # --- STEP 2: Determine the Above-Water Downwelling Irradiance, Es or Ed(0+) ---
-    
-    ED_TRANSMISSION_FACTOR = 0.96 
-    
+    #STEP 2: Determine the Above-Water Downwelling Irradiance, Es or Ed(0+)
+        
     if es_data is not None:
+        # Best scenario: Measured Surface Irradiance exists
         denominator = es_data
     elif use_propagation:
+        # Second best: Extrapolate Ed(0-) from the stable layer, then transmit to Ed(0+)
+
         z_max = pressure[np.where(pressure >= z_top)[0][-1]]
         ed0_minus_spectrum = extrapolate_ed0_minus(pressure, ed_data, z_top, z_max)
         denominator = ed0_minus_spectrum / ED_TRANSMISSION_FACTOR
     else:
+        # Fallback: take the shallowest raw reading and transmit to Ed(0+)
+
         valid_ed_indices = np.where(np.nanmedian(ed_data, axis=1) > 0)[0]
         ed0_minus_spectrum = ed_data[valid_ed_indices[0], :] if len(valid_ed_indices) > 0 else np.full(ed_data.shape[1], np.nan)
         denominator = ed0_minus_spectrum / ED_TRANSMISSION_FACTOR
 
-    # --- STEP 3: Final Rrs Calculation ---
+    # STEP 3: Final Rrs Calculation
     with np.errstate(divide='ignore', invalid='ignore'):
         rrs_spectrum = np.where(denominator > 0, lw_spectrum / denominator, np.nan)
 
     return rrs_spectrum
 
 def calculate_kd_par(pressure, par_profile, analysis_layers):
+    
+    """
+    Calculates the diffuse attenuation coefficient for PAR, Kd(PAR), 
+    using a log-linear fit within defined depth layers.
+    """
+    
     kd_par_results = {};
     for layer_num, data in analysis_layers.items():
         z_min, z_max = data['range']; layer_indices = np.where((pressure >= z_min) & (pressure <= z_max))[0]
@@ -795,14 +936,18 @@ def calculate_kd_par(pressure, par_profile, analysis_layers):
     return kd_par_results
 
 def get_kw_data(model_name):
-    """Returns the Kw dataframe based on the selected model name."""
+    
+    """Returns the pure water absorption/attenuation (Kw) dataframe based on the selected model."""
+    
     if "Morel" in model_name:
-        # Morel & Maritorena (2001)
+        # Morel & Maritorena (2001) 
+
         data = {
             'wavelength': [350, 355, 360, 365, 370, 375, 380, 385, 390, 395, 400, 405, 410, 415, 420, 425, 430, 435, 440, 445, 450, 455, 460, 465, 470, 475, 480, 485, 490, 495, 500, 505, 510, 515, 520, 525, 530, 535, 540, 545, 550, 555, 560, 565, 570, 575, 580, 585, 590, 595, 600, 605, 610, 615, 620, 625, 630, 635, 640, 645, 650, 655, 660, 665, 670, 675, 680, 685, 690, 695, 700],
             'Kw': [0.0271, 0.0238, 0.0216, 0.0188, 0.0177, 0.01595, 0.0151, 0.01376, 0.01271, 0.01208, 0.01042, 0.0089, 0.00812, 0.00765, 0.00758, 0.00768, 0.0077, 0.00792, 0.00885, 0.0099, 0.01148, 0.01182, 0.01188, 0.01211, 0.01251, 0.0132, 0.01444, 0.01526, 0.0166, 0.01885, 0.02188, 0.02701, 0.03385, 0.0409, 0.04214, 0.04287, 0.04454, 0.0463, 0.04846, 0.05212, 0.05746, 0.06053, 0.0628, 0.06507, 0.07034, 0.07801, 0.09038, 0.11076, 0.13584, 0.16792, 0.2231, 0.25838, 0.26506, 0.26843, 0.27612, 0.284, 0.29218, 0.30176, 0.31134, 0.32553, 0.34052, 0.3715, 0.41048, 0.42947, 0.43946, 0.44844, 0.46543, 0.48642, 0.5164, 0.55939, 0.62438]
         }
     else:
+        
         # Smith & Baker (1981)
         data = {
             'wavelength': [300, 305, 310, 315, 320, 325, 330, 335, 340, 345, 350, 355, 360, 365, 370, 375, 380, 385, 390, 395, 400, 405, 410, 415, 420, 425, 430, 435, 440, 445, 450, 455, 460, 465, 470, 475, 480, 485, 490, 495, 500, 505, 510, 515, 520, 525, 530, 535, 540, 545, 550, 555, 560, 565, 570, 575, 580, 585, 590, 595, 600, 605, 610, 615, 620, 625, 630, 635, 640, 645, 650, 655, 660, 665, 670, 675, 680, 685, 690, 695, 700, 705, 710, 715, 720, 725, 730, 735, 740, 745], 
@@ -811,21 +956,47 @@ def get_kw_data(model_name):
     return pd.DataFrame(data)
 
 def get_comparison_stats(df_merged, col_name):
-    """Calcula R2, RMSE e Bias entre internal e external."""
+    """Calculates R2, RMSE, MAE, and Bias between internal and external sensors."""
     y_true = df_merged[f'{col_name}_external']
     y_pred = df_merged[f'{col_name}_internal']
     mask = ~np.isnan(y_true) & ~np.isnan(y_pred)
-    if np.sum(mask) < 2: return {'R2': 0.0, 'RMSE': 0.0, 'Bias': 0.0}
+    
+    if np.sum(mask) < 2: 
+        return {'R2': 0.0, 'RMSE': 0.0, 'MAE': 0.0, 'Bias': 0.0}
     
     return {
         'R2': r2_score(y_true[mask], y_pred[mask]),
         'RMSE': np.sqrt(mean_squared_error(y_true[mask], y_pred[mask])),
-        'Bias': np.mean(y_pred[mask] - y_true[mask])
+        'MAE': mean_absolute_error(y_true[mask], y_pred[mask]),
+        'Bias': np.mean(y_pred[mask] - y_true[mask]) # Average deviation
     }
 
+def get_regression_metrics(x_data, y_data):
+    """Performs linear regression and returns R2, RMSE, MAE, Bias, Slope, Intercept, and P-value."""
+    df = pd.DataFrame({'x': x_data, 'y': y_data}).dropna()
+    
+    if len(df) < 2 or df['x'].nunique() < 2:
+        return {'R²': np.nan, 'RMSE': np.nan, 'MAE': np.nan, 'Bias': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
+    
+    slope, intercept, r_value, p_value, _ = linregress(df['x'], df['y'])
+    y_pred = slope * df['x'] + intercept
+    
+    rmse = np.sqrt(mean_squared_error(df['y'], y_pred))
+    mae = mean_absolute_error(df['y'], y_pred)
+    bias = np.mean(y_pred - df['y']) # Calculates bias for the regression model
+    
+    return {
+        'R²': r_value**2,
+        'RMSE': rmse,
+        'MAE': mae,
+        'Bias': bias,
+        'Slope': slope,
+        'Intercept': intercept,
+        'P-value': p_value
+    }
 
 def highlight_best(s):
-    """Aplica fundo verde para as melhores estatísticas em cada coluna."""
+    """Applies green background to the best statistics (Highest R2, Lowest RMSE/MAE/Bias)."""
     if s.name == 'Match Found' or s.dtype == object: 
         return [''] * len(s)
     
@@ -837,30 +1008,25 @@ def highlight_best(s):
         return ['background-color: #006400' if v else '' for v in is_max]
     elif 'Bias' in s.name:
         return ['background-color: #006400' if v else '' for v in is_min_abs]
-    else: # RMSE
+    else: # RMSE and MAE: Lower is better
         return ['background-color: #006400' if v else '' for v in is_min]
 
-def get_comparison_stats(df_merged, col_name):
-    """Calcula estatísticas robustas para a tabela."""
-    y_true = df_merged[f'{col_name}_external']
-    y_pred = df_merged[f'{col_name}_internal']
-    mask = ~np.isnan(y_true) & ~np.isnan(y_pred)
-    if np.sum(mask) < 2: return {'R2': 0.0, 'RMSE': 0.0, 'Bias': 0.0}
-    return {
-        'R2': r2_score(y_true[mask], y_pred[mask]),
-        'RMSE': np.sqrt(mean_squared_error(y_true[mask], y_pred[mask])),
-        'Bias': np.mean(y_pred[mask] - y_true[mask])
-    }
-
 def fig_to_buffer(fig):
-    """Converte plots para buffer de imagem PNG de alta resolução."""
+    
+    """Converts matplotlib figures to high-resolution PNG byte buffers for export."""
+    
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
     buf.seek(0)
     return buf
 
 def compare_ctd_profiles(df_i, df_e):
-    """Interpola para grade comum de 0.5m. Sem filtros de suavização."""
+    
+    """
+    Interpolates internal and external CTD profiles to a common 0.5m grid 
+    to allow direct statistical comparison. No smoothing filters are applied.
+    """
+    
     z_min = max(df_i['Depth'].min(), df_e['Depth'].min())
     z_max = min(df_i['Depth'].max(), df_e['Depth'].max())
     if z_min >= z_max: return None
@@ -873,6 +1039,9 @@ def compare_ctd_profiles(df_i, df_e):
     return merged.dropna()
 
 def create_full_report_zip(zip_file, base_name):
+    
+    """Helper function to dump all generated plots and dataframes into a structured ZIP file."""
+    
     figs_to_save_from_state = {"1_Stratification_Backscatter": st.session_state.get('fig_n2'), "2_Rrs_Spectra": st.session_state.get('fig_rrs'), "3_Log_Radiance_Profiles": st.session_state.get('fig_log'), "4_Attenuation_Spectra": st.session_state.get('fig_k'), "5_TS_Diagram": st.session_state.get('fig_ts'), "6_TS_Mixture_Depth_Profile": st.session_state.get('fig_mix_depth'), "7_CTD_Comparison": st.session_state.get('fig_comp'), "8_LuEd_Spectra_Comparison": st.session_state.get('fig_spec'),}
     for fig_name, fig_obj in figs_to_save_from_state.items():
         if fig_obj: zip_file.writestr(f"{base_name}/Plots/{fig_name}.png", fig_to_buffer(fig_obj).getvalue())
@@ -897,10 +1066,13 @@ def create_full_report_zip(zip_file, base_name):
         
 @st.cache_data
 def load_srf_from_folder(folder_path="srf_data"):
+    
     """
-    Scans a folder for SRF csv files and loads them into a dictionary.
-    This function is cached to run only once.
-    """
+   Scans a local directory for Spectral Response Function (SRF) CSV files 
+   and loads them into a dictionary for satellite convolution.
+   This function is cached to run only once and save memory.
+   """
+   
     srf_data = {}
     try:
         import os
@@ -916,6 +1088,9 @@ def load_srf_from_folder(folder_path="srf_data"):
         return None
         
 def calculate_external_kd_par(df_external, depth_col, par_col, z_min, z_max):
+    
+    """Calculates Kd(PAR) from an external probe's dataframe within a specific depth layer."""
+    
     if df_external is None or depth_col not in df_external.columns or par_col not in df_external.columns: return np.nan
     df_external[depth_col] = pd.to_numeric(df_external[depth_col], errors='coerce'); df_external[par_col] = pd.to_numeric(df_external[par_col], errors='coerce'); df_layer = df_external.dropna(subset=[depth_col, par_col])
     df_layer = df_layer[(df_layer[depth_col] >= z_min) & (df_layer[depth_col] <= z_max)]; df_layer = df_layer[df_layer[par_col] > 0]
@@ -924,38 +1099,33 @@ def calculate_external_kd_par(df_external, depth_col, par_col, z_min, z_max):
     return -slope
 
 def estimate_chlorophyll_from_kdpar(kd_par):
+    
+    """
+    Empirical Case-1 water model to estimate Chlorophyll-a from Kd(PAR).
+    Subtracts the pure water contribution (0.022 m^-1) before calculation.
+    """
+    
     if kd_par <= 0.022: return 0.0
     kd_bio = kd_par - 0.022; a, b = 0.0512, 0.428; chlorophyll = (kd_bio / a)**(1 / b)
     return chlorophyll
 
 def estimate_kd490_from_chlorophyll(chlorophyll):
+    
+    """
+     Morel & Maritorena, 2001, to estimate 
+    Kd(490) based on Chlorophyll-a concentration.
+    """
+    
     kw_490 = 0.0166; x = 0.07917; e = 0.7895; kd_490 = kw_490 + x * (chlorophyll**e)
     return kd_490
 
 
-def get_regression_metrics(x_data, y_data):
-    """Performs linear regression and returns key metrics, handling identical x-values."""
-    df = pd.DataFrame({'x': x_data, 'y': y_data}).dropna()
-    
-    # ---  Check for at least two unique x-values ---
-    # A regression is only possible if there's variation in the independent variable.
-    if len(df) < 2 or df['x'].nunique() < 2:
-        return {'R²': np.nan, 'RMSE': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
-    
-    slope, intercept, r_value, p_value, _ = linregress(df['x'], df['y'])
-    
-    y_pred = slope * df['x'] + intercept
-    rmse = np.sqrt(mean_squared_error(df['y'], y_pred))
-    
-    return {
-        'R²': r_value**2,
-        'RMSE': rmse,
-        'Slope': slope,
-        'Intercept': intercept,
-        'P-value': p_value
-    }
+# ----------------------------- DATA UPLOAD HANDLERS -----------------------------
+
 def _handle_master_rrs_upload():
+    
     """Callback function to process the master Rrs file upload."""
+    
     if st.session_state.master_rrs_loader is None:
         return
     try:
@@ -964,9 +1134,9 @@ def _handle_master_rrs_upload():
         
         # Store the DataFrame in the session state
         st.session_state.master_rrs_df = df_loaded
-        st.toast(f"Successfully loaded {len(df_loaded.columns) - 1} historical Rrs spectra!", icon="✅")
+        st.toast(f"Successfully loaded {len(df_loaded.columns) - 1} historical Rrs spectra!")
     except Exception as e:
-        st.toast(f"Failed to read master Rrs file: {e}", icon="❌")
+        st.toast(f"Failed to read master Rrs file: {e}")
         
 def _handle_rad_upload():
     if st.session_state.up_rad_m:
@@ -993,30 +1163,34 @@ def _handle_multi_upload():
         st.toast("Multispectral mesclado!")        
         
 def _handle_master_secchi_upload():
-    """Callback para carregar e mesclar o arquivo Master de Secchi/Kd na Tab 9."""
-    # Verifica se o arquivo foi carregado no uploader da Tab 9 (chave: up_secchi_central)
-    if st.session_state.up_secchi_central:
+    """Callback to load and merge the Master Secchi/Kd database file."""
+    if st.session_state.master_secchi_loader is not None:
         try:
-            df_loaded = pd.read_csv(st.session_state.up_secchi_central)
+            df_loaded = pd.read_csv(st.session_state.master_secchi_loader)
+            expected_cols = ['Station_ID', 'Secchi', 'Kd(PAR)_Profiler', 'Kd(490)_Profiler', 'Kd(PAR)_External']
             
-            # Concatena com o que já existe na memória
-            combined_df = pd.concat([st.session_state.master_kd_secchi_df, df_loaded], ignore_index=True)
-            
-            # Remove duplicatas baseadas na Estação (mantém a última versão carregada)
-            combined_df.drop_duplicates(subset=['Station_ID'], keep='last', inplace=True)
-            
-            # Salva de volta no estado
-            st.session_state.master_kd_secchi_df = combined_df
-            st.toast("Base Master de Secchi & Kd atualizada!", icon="📏")
-            
+            if all(col in df_loaded.columns for col in expected_cols):
+                # Merges with existing session data, prioritizing newly loaded data
+                combined_df = pd.concat([st.session_state.master_kd_secchi_df, df_loaded], ignore_index=True)
+                # Removes duplicates based on Station_ID (keeps the latest instance)
+                combined_df.drop_duplicates(subset=['Station_ID'], keep='last', inplace=True)
+                
+                st.session_state.master_kd_secchi_df = combined_df
+                st.toast("Master Secchi database successfully merged!")
+            else:
+                st.error("Uploaded CSV is missing the required columns.")
         except Exception as e:
-            st.error(f"Erro ao ler arquivo de Secchi: {e}")
+            st.error(f"Failed to read the master file: {e}")
+            
+# ----------------------------- PLOTTING AND UTILITY FUNCTIONS -----------------------------
 
 def plot_kd_secchi_relationship(df):
+    
     """Generates comparative scatter plots and regression metrics for Secchi vs Kd."""
+    
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
     
-    # --- Plot 1: Secchi vs Kd(PAR) (Comparative) ---
+    # Plot 1: Secchi vs Kd(PAR) (Comparative) 
     ax1.set_title("Secchi Depth vs. Kd(PAR)", weight='bold')
     ax1.set_xlabel("Secchi Depth (m)", weight='bold')
     ax1.set_ylabel("Kd(PAR) (m⁻¹)", weight='bold')
@@ -1045,7 +1219,7 @@ def plot_kd_secchi_relationship(df):
     
     ax1.grid(True, linestyle=':'); ax1.legend()
 
-    # --- Plot 2: Secchi vs Kd(490) (Profiler Only) ---
+    # Plot 2: Secchi vs Kd(490) (Profiler Only)
     ax2.set_xlabel("Secchi Depth (m)", weight='bold')
     ax2.set_ylabel("Kd(490) (m⁻¹)", weight='bold')
     ax2.set_title("Secchi Depth vs. Kd(490) (Profiler)", weight='bold')
@@ -1056,7 +1230,7 @@ def plot_kd_secchi_relationship(df):
             metrics_490 = get_regression_metrics(df_490_prof['Secchi'], df_490_prof['Kd(490)_Profiler'])
             if not pd.isna(metrics_490['R²']):
                 x_min, x_max = df_490_prof['Secchi'].min(), df_490_prof['Secchi'].max()
-                x_vals = np.array([x_min, x_max]) if x_min != x_max else np.array([x_min - 1, x_max + 1]) # Handle case where all x are the same
+                x_vals = np.array([x_min, x_max]) if x_min != x_max else np.array([x_min - 1, x_max + 1])  # Handles identical x-values
                 ax2.plot(x_vals, metrics_490['Intercept'] + metrics_490['Slope'] * x_vals, '--', color='lime', label=f'R² = {metrics_490["R²"]:.3f}')
     
     ax2.grid(True, linestyle=':'); ax2.legend()
@@ -1064,19 +1238,19 @@ def plot_kd_secchi_relationship(df):
     plt.tight_layout()
     st.pyplot(fig)
 
-    # --- Display All Regression Metrics ---
+    # Display All Regression Metrics 
     st.markdown("**Regression Metrics**")
     
-    # --- Only calculate metrics if there is enough data ---
+    # Only calculate metrics if there is enough data 
     if len(df_par_prof) >= 2:
         metrics_prof_par = get_regression_metrics(df_par_prof['Secchi'], df_par_prof['Kd(PAR)_Profiler'])
     else:
-        metrics_prof_par = {'R²': np.nan, 'RMSE': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
+        metrics_prof_par = {'R²': np.nan, 'RMSE': np.nan, 'MAE': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
 
     if len(df_par_ext) >= 2:
         metrics_ext_par = get_regression_metrics(df_par_ext['Secchi'], df_par_ext['Kd(PAR)_External'])
     else:
-        metrics_ext_par = {'R²': np.nan, 'RMSE': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
+        metrics_ext_par = {'R²': np.nan, 'RMSE': np.nan, 'MAE': np.nan, 'Slope': np.nan, 'Intercept': np.nan, 'P-value': np.nan}
         
     if len(df_490_prof) >= 2:
         metrics_prof_490 = get_regression_metrics(df_490_prof['Secchi'], df_490_prof['Kd(490)_Profiler'])
@@ -1090,53 +1264,41 @@ def plot_kd_secchi_relationship(df):
     st.dataframe(df_metrics.style.format('{:.4f}'), use_container_width=True)
     
 def find_best_match(target_id, candidates):
-    """Lógica ultra-permissiva para p1 vs p1a ou perfil_p1."""
+    
+    """
+    Ultra-permissive fuzzy matching logic to link profiler station IDs 
+    to external probe station IDs (e.g., links 'p1' to 'perfil_p1' or 'p1a').
+    """
+    
     if not target_id or candidates is None or len(candidates) == 0: return None
     t = str(target_id).lower().strip()
     c_list = [str(c) for c in candidates if str(c) != "nan"]
     
-    # 1. Tenta match exato
+    # 1. Tries exact match first
     for c in c_list:
         if c.lower().strip() == t: return c
     
-    # 2. Tenta substring (p1 em p1a ou perfil_p1 em p1)
+    # 2. Tries substring match
     for c in c_list:
         clean_c = c.lower().strip()
         if t in clean_c or clean_c in t: return c
         
-    # 3. Fallback: Se houver apenas uma estação no arquivo externo, assume que é ela
+    # 3. Fallback: If there's only one station in the external file, assume it's the right one
     if len(c_list) == 1: return c_list[0]
     
     return None
-def _handle_master_secchi_upload():
-    """Callback para carregar arquivo master de Secchi e mesclar com a sessão."""
-    if st.session_state.master_secchi_loader is not None:
-        try:
-            df_loaded = pd.read_csv(st.session_state.master_secchi_loader)
-            expected_cols = ['Station_ID', 'Secchi', 'Kd(PAR)_Profiler', 'Kd(490)_Profiler', 'Kd(PAR)_External']
-            
-            if all(col in df_loaded.columns for col in expected_cols):
-                # Mescla com o que já existe, priorizando os dados carregados do arquivo
-                combined_df = pd.concat([st.session_state.master_kd_secchi_df, df_loaded], ignore_index=True)
-                # Remove duplicatas pela Station_ID (mantém a última ocorrência)
-                combined_df.drop_duplicates(subset=['Station_ID'], keep='last', inplace=True)
-                
-                st.session_state.master_kd_secchi_df = combined_df
-                st.toast("✅ Master Secchi mesclado com sucesso!", icon="📊")
-            else:
-                st.error("O arquivo CSV não possui as colunas necessárias.")
-        except Exception as e:
-            st.error(f"Falha ao ler o arquivo master: {e}")
+
 
 def plot_interactive_n2_offset(depth_ref, n2_ref, depth_target, n2_target, applied_offset, xlabel="Métrica", normalize=False):
+    
     """
-    Gera gráfico interativo.
-    ORDEM DE CAMADAS ALTERADA: Simulado (Fundo) -> Original (Meio) -> Ref (Topo).
-    Isso garante que a linha Original apareça mesmo se o offset for zero.
+    Generates an interactive Plotly graph for visual alignment of stratification peaks.
+    Layering order: Simulated (Background) -> Original (Middle) -> Reference (Top).
     """
+    
     fig = go.Figure()
 
-    # --- LÓGICA DE NORMALIZAÇÃO ---
+    # NORMALIZATION LOGIC
     if normalize:
         # Ref
         rmin, rmax = np.nanmin(n2_ref), np.nanmax(n2_ref)
@@ -1148,37 +1310,35 @@ def plot_interactive_n2_offset(depth_ref, n2_ref, depth_target, n2_target, appli
         
         xlabel = "Escala Normalizada (0 a 1)"
 
-    # CAMADA 1 (FUNDO): Jimmy Simulado (Azul Grosso e Transparente)
-    # Desenhamos primeiro para ficar atrás de tudo
+    #LAYER 1 (BACKGROUND): Simulated Profiler (Thick Transparent Blue)
     depth_corrected = depth_target + applied_offset
     fig.add_trace(go.Scatter(
-        x=n2_target, y=depth_corrected, mode='lines', name='Simulado (Azul)',
+        x=n2_target, y=depth_corrected, mode='lines', name='Simulated Offset (Blue)',
         line=dict(color='#00B4D8', width=6), # Bem grosso
         opacity=0.4, # Bem transparente
         hovertemplate='<b>Simulado</b><br>Prof: %{y:.2f}m<br>Val: %{x:.2f}<extra></extra>'
     ))
 
-    # CAMADA 2 (MEIO): Jimmy Original (Vermelho Fino e Sólido)
-    # Desenhamos por cima do azul. Se offset=0, veremos uma linha vermelha dentro da azul.
+   # LAYER 2 (MIDDLE): Original Profiler (Solid Thin Red)
     fig.add_trace(go.Scatter(
-        x=n2_target, y=depth_target, mode='lines', name='Original (Vermelho)',
+        x=n2_target, y=depth_target, mode='lines', name='Original (Red)',
         line=dict(color='#FF4B4B', width=2, dash='solid'), # Sólido para ver melhor
         opacity=1.0, 
         hovertemplate='<b>Orig</b><br>Prof: %{y:.2f}m<br>Val: %{x:.2f}<extra></extra>'
     ))
 
-    # CAMADA 3 (TOPO): Ref C3 (Verde)
+    # LAYER 3 (TOP): External Reference (Green)
     fig.add_trace(go.Scatter(
-        x=n2_ref, y=depth_ref, mode='lines', name='Ref: C3 (Verde)',
+        x=n2_ref, y=depth_ref, mode='lines', name='External Ref (Green)',
         line=dict(color='#00FF00', width=2),
         hovertemplate='<b>Ref</b><br>Prof: %{y:.2f}m<br>Val: %{x:.2f}<extra></extra>'
     ))
 
     fig.update_layout(
-        title=f"<b>Ajuste Fino Interativo</b> (Offset Atual: {applied_offset:+.2f}m)",
+        title=f"<b>Ajuste Fino Interativo</b> (Current Offset: {applied_offset:+.2f}m)",
         xaxis_title=xlabel,
         yaxis_title="Profundidade (m)",
-        # Autorange reversed garante que o 0 fique no topo, mas inclui negativos se existirem
+        # Autorange reversed 0 at the top, allowing negative depths if existent
         yaxis=dict(autorange="reversed"), 
         height=600,
         hovermode="y unified",
@@ -1188,29 +1348,23 @@ def plot_interactive_n2_offset(depth_ref, n2_ref, depth_target, n2_target, appli
     return fig
 
 def get_col_index(columns, session_key):
-    """Retorna o índice da coluna salva no session_state para persistência nos widgets."""
+    """Returns the index of a saved column in session_state to persist widget selections."""
     if session_key in st.session_state:
         val = st.session_state[session_key]
         if val in columns:
             return list(columns).index(val)
     return 0
 
-def fig_to_buffer(fig):
-    """Converts plots to images for the ZIP file."""
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-    buf.seek(0)
-    return buf
 
 def aggregate_to_vertical_masters(station_id, station_data, derived_products):
     """
-    Agrega dados para a campanha global, incluindo Radiometria, PAR, Chl, CDOM e Massas d'Água.
+    Aggregates processed data for the global campaign database, including 
+    Radiometry, PAR, Chlorophyll, CDOM, and Water Mass fractions.
     """
     depths, wavelengths = station_data['pressure'], station_data['wavelengths']
     
-    # ---------------------------------------------------------
-    # 1. RADIOMETRIA VERTICAL MASTER (Ed, Lu, LuEd adjacentes)
-    # ---------------------------------------------------------
+    # 1. MASTER VERTICAL RADIOMETRY (Ed, Lu, and apparent Lu/Ed ratio)
+    
     rad_df = pd.DataFrame({'Station_ID': station_id, 'Depth': depths})
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio = np.where(station_data['Ed_data'] > 0, station_data['Lu_data'] / station_data['Ed_data'], np.nan)
@@ -1224,23 +1378,21 @@ def aggregate_to_vertical_masters(station_id, station_data, derived_products):
         st.session_state.master_vertical_radiometry[st.session_state.master_vertical_radiometry['Station_ID'] != station_id], 
         rad_df], ignore_index=True, sort=False)
 
-    # ---------------------------------------------------------
-    # 2. ANCILLARY MASTER (PAR, Chl, CDOM, WM)
-    # ---------------------------------------------------------
+    # 2. MASTER ANCILLARY DATA (PAR, Chl, CDOM, WM)
     anc_df = pd.DataFrame({'Station_ID': station_id, 'Depth': depths})
     
-    # A. PAR Profiler (Calculado)
+    # A. Profiler PAR (Calculated Quantum Flux)
     h_c, c_c, Na_c = 6.626e-34, 3e8, 6.022e23
     p_idx = np.where((wavelengths >= 400) & (wavelengths <= 700))[0]
     ed_q = station_data['Ed_data'][:, p_idx] * ((wavelengths[p_idx]*1e-9)/(h_c*c_c)*(1e-6*1e4)/Na_c*1e6)
     anc_df['PAR_Profiler'] = np.sum(ed_q, axis=1)
 
-    # Inicializa colunas externas com NaN
+    # Initializes external columns with NaN
     anc_df['PAR_External'] = np.nan
     anc_df['Chl_External'] = np.nan
     anc_df['CDOM_External'] = np.nan
 
-    # B. Dados do Probe 1 (PAR e Clorofila)
+    # B. External Probe 1 Data (PAR and Chlorophyll)
     if st.session_state.external_probe_df is not None:
         df_p1 = st.session_state.external_probe_df
         st1_col = st.session_state.get('p1_st')
@@ -1249,21 +1401,21 @@ def aggregate_to_vertical_masters(station_id, station_data, derived_products):
         chl_col = st.session_state.get('p1_chl')
 
         if st1_col != "None" and z1_col != "None":
-            # Busca estação correspondente
+            # Finds corresponding station
             match1 = find_best_match(station_id, df_p1[st1_col].dropna().unique())
             if match1:
                 df_s1 = df_p1[df_p1[st1_col].astype(str) == str(match1)]
                 z_ext1 = pd.to_numeric(df_s1[z1_col], errors='coerce')
                 
-                # Interpola PAR
+                # Interpolates PAR
                 if par_col != "None" and par_col in df_s1:
                     anc_df['PAR_External'] = np.interp(depths, z_ext1, pd.to_numeric(df_s1[par_col], errors='coerce'), left=np.nan, right=np.nan)
                 
-                # Interpola Chl (NOVO)
+                # Interpolates Chl 
                 if chl_col != "None" and chl_col in df_s1:
                     anc_df['Chl_External'] = np.interp(depths, z_ext1, pd.to_numeric(df_s1[chl_col], errors='coerce'), left=np.nan, right=np.nan)
 
-    # C. Dados do Probe 2 (CDOM)
+     # C. External Probe 2 Data (CDOM / Fluorimeter)
     if st.session_state.external_bio_df is not None:
         df_p2 = st.session_state.external_bio_df
         st2_col = st.session_state.get('p2_st')
@@ -1271,31 +1423,28 @@ def aggregate_to_vertical_masters(station_id, station_data, derived_products):
         cdom_col = st.session_state.get('p2_cdom')
 
         if st2_col != "None" and z2_col != "None" and cdom_col != "None":
-            # Busca estação correspondente no arquivo Bio
             match2 = find_best_match(station_id, df_p2[st2_col].dropna().unique())
             if match2:
                 df_s2 = df_p2[df_p2[st2_col].astype(str) == str(match2)]
                 z_ext2 = pd.to_numeric(df_s2[z2_col], errors='coerce')
                 
-                # Interpola CDOM (NOVO)
+                # Interpolates CDOM
                 anc_df['CDOM_External'] = np.interp(depths, z_ext2, pd.to_numeric(df_s2[cdom_col], errors='coerce'), left=np.nan, right=np.nan)
 
-    # D. Massas d'Água (WM)
+    # D. Water Mass Fractions (WM)
     for n in st.session_state.wm_names:
-        # Profiler
+        # From Profiler
         anc_df[f'WM_{n}_Profiler'] = st.session_state.mixture_df_profiler[n].values if st.session_state.mixture_df_profiler is not None else np.nan
         
-        # External (Probe 1)
+        # From External Probe
         anc_df[f'WM_{n}_External'] = np.nan
         if st.session_state.mixture_df_external is not None and st.session_state.external_probe_df is not None:
-            # Precisamos recuperar o Z do Probe 1 usado na mistura
-            # (Assumindo que o mixture_df_external atual corresponde à estação sendo salva)
-            # Re-recupera o Z para garantir alinhamento
+            
             if st1_col != "None" and z1_col != "None":
                  match_mix = find_best_match(station_id, st.session_state.external_probe_df[st1_col].dropna().unique())
                  if match_mix:
                      df_mix_src = st.session_state.external_probe_df[st.session_state.external_probe_df[st1_col].astype(str) == str(match_mix)]
-                     # Filtra igual a Tab 4 (dropna em T e S)
+                     # Requires Temperature and Salinity to exist (same as Tab 4 logic)
                      df_mix_src = df_mix_src.dropna(subset=[st.session_state.p1_t, st.session_state.p1_s])
                      z_mix = pd.to_numeric(df_mix_src[z1_col], errors='coerce')
                      
@@ -1306,39 +1455,39 @@ def aggregate_to_vertical_masters(station_id, station_data, derived_products):
         st.session_state.master_vertical_ancillary[st.session_state.master_vertical_ancillary['Station_ID'] != station_id], 
         anc_df], ignore_index=True, sort=False)
     
-    # ---------------------------------------------------------
-    # 3. SNAPSHOT RRS MASTER (Hiperspectral Propagado L1)
-    # ---------------------------------------------------------
+    # 3. MASTER HYPERSPECTRAL RRS SNAPSHOT (L1 Propagated)
     if derived_products:
         rrs_df = derived_products['rrs_df_export']
+        # Identifies the highest priority Rrs column (Propagated L1 > Propagated > Initial)
+
         target_col = next((c for c in rrs_df.columns if 'propagated_rrs_L1' in c), 
                           next((c for c in rrs_df.columns if 'propagated' in c), 'initial_rrs_sr-1'))
         rrs_snap = pd.DataFrame([rrs_df[target_col].values], columns=[f"Rrs_{int(w)}" for w in rrs_df['wavelength_nm']])
         rrs_snap.insert(0, 'Station_ID', station_id)
         st.session_state.master_hyper_rrs_df = pd.concat([st.session_state.master_hyper_rrs_df[st.session_state.master_hyper_rrs_df['Station_ID'] != station_id], rrs_snap], ignore_index=True, sort=False)
 
-    st.toast(f"Snapshot de '{station_id}' salvo com Chl e CDOM!")
+    st.toast(f"Snapshot of '{station_id}' successfully saved to master database!")
 
-# === 1. SESSION STATE INITIALIZATION ===
+# ---------------------------- 1. SESSION STATE INITIALIZATION ----------------------------
 keys_to_init = {
     'station_data': None, 
     'station_list': [], 
     'selected_station': None, 
-    'lat': -24.101879, 
-    'lon': -45.692597,
+    'lat': -24.101879, # Can be changed so a new default lat is set
+    'lon': -45.692597, # Can be changed so a new default lon is set
     'profile_specific_layers': {},
     'derived_products': None,
     'notification': None,
     'discarded_indices': [],
     'new_es_median': None,
-    'wm_names': ["AT", "ACAS", "AC"], 
+    'wm_names': ["AT", "ACAS", "AC"], # Can be changed so new default water masses are set
     'wm_vertices': None,
     
-    # --- PROBES EXTERNOS ---
+    # EXTERNAL PROBES
     'external_probe_df': None,
     'external_bio_df': None, 
     
-    # --- MISTURA ---
+    # MIXTURE 
     'mixture_df_profiler': None,
     'mixture_df_external': None,
     'mixture_results_profiler': None,
@@ -1346,7 +1495,7 @@ keys_to_init = {
     
     'uploader_id': 0,
     
-    # --- TABELAS MASTER ---
+    # MASTER TABLES
     'master_vertical_radiometry': pd.DataFrame(columns=['Station_ID', 'Depth']),
     'master_vertical_ancillary': pd.DataFrame(columns=['Station_ID', 'Depth']),
     'master_hyper_rrs_df': pd.DataFrame(columns=['Station_ID']),
@@ -1354,11 +1503,11 @@ keys_to_init = {
     'master_kd_secchi_df': pd.DataFrame(columns=['Station_ID', 'Secchi', 'Kd(PAR)_Profiler', 'Kd(490)_Profiler', 'Kd(PAR)_External']),
     'empirical_model_data': pd.DataFrame(columns=['Station_ID', 'Layer', 'Kd(PAR)', 'Kd(490)']), # Importante para a Tab 5
     
-    # --- FIGURAS ---
+    # FIGURES 
     'fig_vp': None, 'fig_ve': None, 'fig_ts': None, 'fig_n2': None, 
     'fig_rrs': None, 'fig_log': None, 'fig_k': None, 'fig_comp': None,
     
-    # --- COLUNAS SELECIONADAS (Prevenir erros de chave na Tab 1) ---
+    # SELECTED COLUMNS (Prevent key errors in Tab 1)
     'p1_st': "None", 'p1_z': "None", 'p1_t': "None", 'p1_s': "None", 
     'p1_chl': "None", 'p1_sec': "None", 'p1_par': "None",
     'p2_st': "None", 'p2_z': "None", 'p2_cdom': "None"
@@ -1368,17 +1517,17 @@ for key, value in keys_to_init.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# Limpeza de colunas fantasmas para manter a Master Ancillary organizada
-cols_limpeza = ['PAR_Profiler_Jimmy', 'PAR_External_Probe', 'PAR_External_Probe_umol_m2_s', 'PAR_External_umol_m2_s']
+# Ghost column cleanup to keep Master Ancillary organized
+cols_limpeza = ['PAR_Profiler_Profiler', 'PAR_External_Probe', 'PAR_External_Probe_umol_m2_s', 'PAR_External_umol_m2_s']
 for col in cols_limpeza:
     if col in st.session_state.master_vertical_ancillary.columns:
         st.session_state.master_vertical_ancillary = st.session_state.master_vertical_ancillary.drop(columns=[col])
         
         
         
-# === 5. UI: SIDEBAR ===
+# 5. UI: SIDEBAR
 with st.sidebar:
-    st.title("Ocean Optics Explorer"); st.header("1. Load Data"); uploaded_files = st.file_uploader("Upload In-Water Profiler Files (Temp, Cond, Ed, Lu)", accept_multiple_files=True, type="csv"); uploaded_beta_file = st.file_uploader("Upload Backscattering 'Beta' File (Optional)", type="csv", key="beta_uploader"); uploaded_es_file = st.file_uploader("Upload Surface Es CSV File (Optional)", type="csv", key="es_uploader")
+    st.title("Ocean Optics Explorer"); st.header("1. Load Data"); uploaded_files = st.file_uploader("Upload In-Water Profiler Files (Temp, Cond, Ed, Lu)", accept_multiple_files=True, type="csv"); uploaded_beta_file = st.file_uploader("Upload Backscattering 'Beta' File (Optional)", type="csv", key="beta_uploader"); uploaded_es_file = st.file_uploader("Upload Es CSV File (Optional)", type="csv", key="es_uploader")
     if uploaded_files and st.button("Process Files"):
         with st.spinner("Processing data..."):
             st.session_state.station_data, st.session_state.station_list = process_uploaded_files(uploaded_files, uploaded_es_file, uploaded_beta_file)
@@ -1441,11 +1590,13 @@ with st.sidebar:
                 st.toast("Layer not defined yet.")
         
         station_id = st.session_state.selected_station; defined_layers = st.session_state.profile_specific_layers.get(station_id, {})
+        
         if defined_layers:
             st.markdown("**Defined Layers for this Profile:**")
             for layer, data in sorted(defined_layers.items()): st.write(f"  - Layer {layer}: `{data['range'][0]}m` - `{data['range'][1]}m`")
             if st.button("Clear Layers for This Profile"): st.session_state.profile_specific_layers[station_id] = {}; st.rerun()
             st.markdown("---")
+            
         if st.button("Reset All & Restart App", type="primary", use_container_width=True):
             # 1. Increment the uploader ID so new widgets are created on rerun
             new_id = st.session_state.uploader_id + 1
@@ -1456,40 +1607,38 @@ with st.sidebar:
             # 4. Rerun the app (Uploaders will now be empty)
             st.rerun()
 
-# === 6. UI: MAIN CONTENT ===
+# 6. UI: MAIN CONTENT
 if not st.session_state.station_data:
     st.info("Welcome! Please upload your data files using the sidebar to begin.")
 else:
     if 'previous_station' not in st.session_state or st.session_state.previous_station != st.session_state.selected_station:
-       # Limpa resultados óticos
+       # Clear optical results on station change
        st.session_state.mixture_results = None
        st.session_state.mixture_df = None
        st.session_state.derived_products = None
        st.session_state.discarded_indices = []
        st.session_state.new_es_median = None
        
-       # LIMPEZA CRÍTICA PARA EVITAR O ERRO DE DIMENSÃO (49 vs 51)
+       # Critical cleanup to avoid dimension mismatch
        st.session_state.mixture_df_profiler = None
        st.session_state.mixture_df_external = None
        st.session_state.mixture_results_profiler = None
        st.session_state.mixture_results_external = None
        
-       # Atualiza a estação anterior para a atual
+       #Updates stations
        st.session_state.previous_station = st.session_state.selected_station
 
-    # --- NOTIFICATION HANDLER ---
-    # It displays any success/error messages left by callback functions.
+    # NOTIFICATION HANDLER
     if st.session_state.notification:
         msg = st.session_state.notification['message']
         icon = "✅" if st.session_state.notification['type'] == 'success' else "❌"
         
-        # Use toast instead of a static alert box
         st.toast(msg, icon=icon)
         
         # Clear the notification state
         st.session_state.notification = None # Clear the message after showing it once
 
-    # --- DATA PREPARATION AND CENTRAL CALCULATIONS ---
+    # DATA PREPARATION AND CENTRAL CALCULATIONS
     station_id = st.session_state.selected_station
     station_data = st.session_state.station_data[station_id]
     es_for_rrs = station_data.get('Es', None)
@@ -1513,7 +1662,7 @@ else:
         layer_k_data = {}; results_df = None; kd_par_df = None
         st.session_state.results_df = None; st.session_state.kd_par_df = None
 
-    # --- FIX FOR EXTERNAL KD(PAR) CALCULATION ---
+    # EXTERNAL KD(PAR) CALCULATION
     if derived_products and st.session_state.get('external_probe_df') is not None:
         df_ext_raw = st.session_state.external_probe_df
         # Use as chaves estáveis da Tab 1
@@ -1529,7 +1678,6 @@ else:
                 layer_num = int(layer_str.split(' ')[1])
                 z_min, z_max = current_station_layers[layer_num]['range']
                 
-                # Perform the calculation
                 external_kd_par = calculate_external_kd_par(df_ext_raw, ext_depth_col, ext_par_col, z_min, z_max)
                 
                 estimated_kd490_external = np.nan
@@ -1548,14 +1696,16 @@ else:
         st.session_state.comparison_kd_df = None
         
     fig_n2, fig_rrs, fig_log, fig_k, fig_ts = (plt.figure() for i in range(5))
+    
+    
 
-    # --- TAB CREATION ---
+    # TAB CREATION
     def on_tab_change():
         st.session_state.active_tab = st.session_state.main_tabs
     
     # 1. Clean Tab List
     tab_titles = [
-        "Depth Correction", "CTD Comparison", "Surface Es", 
+        "Depth Correction", "CTD Comparison", "Es Tilt", 
         "Core Optical Analysis", "T-S Diagram", "Bio-Optical Models", 
         "Secchi & Kd Analysis", "Spectral Convolution", "Master Data & Reports", "Methods"
     ]
@@ -1566,22 +1716,20 @@ else:
 
 
        
-    # ===================================================================
-    # TAB: DEPTH CORRECTION 
-    # ===================================================================
+    # ------------------ TAB 1: DEPTH CORRECTION (TOOLS) ------------------
+    
     with tab_tools:
-        st.header("Ferramenta de Correção de Profundidade")
-        st.info("Alinhe os perfis visualmente. A linha AZUL deve ficar em cima da linha VERDE.")
+        st.header("Depth Correction Tool")
+        st.info("Visually align the profiles. The BLUE line should overlap the GREEN line.")
         
         if not st.session_state.station_data:
-            st.warning("Carregue os arquivos do perfilador primeiro.")
+            st.warning("Please upload profiler files first.")
         else:
             c1, c2 = st.columns([1, 1])
-            target_station = c1.selectbox("1. Perfilador (Jimmy):", st.session_state.station_list, key="fix_tgt")
-            uploaded_ref = c2.file_uploader("2. Referência (Castaway .csv):", type="csv", key="ref_upl")
+            target_station = c1.selectbox("1. Profiler:", st.session_state.station_list, key="fix_tgt")
+            uploaded_ref = c2.file_uploader("2. Reference (e.g. Castaway/External .csv):", type="csv", key="ref_upl")
 
             if uploaded_ref:
-                # Carregamento e Cache
                 if 'last_uploaded_ref' not in st.session_state or st.session_state.last_uploaded_ref != uploaded_ref.name:
                     st.session_state.df_ref_tool = load_castaway_ctd(uploaded_ref)
                     st.session_state.last_uploaded_ref = uploaded_ref.name
@@ -1589,35 +1737,33 @@ else:
                 df_ref = st.session_state.df_ref_tool
                 
                 if df_ref is not None:
-                    # Inicializa variável do Offset
                     if 'current_offset_val' not in st.session_state:
                         st.session_state.current_offset_val = 0.0
                     
-                    # Botão para (Re)Carregar Dados
-                    if 'tool_d_ref' not in st.session_state or st.button("Recarregar Dados Originais"):
+                    if 'tool_d_ref' not in st.session_state or st.button("Reload Original Data"):
                         
-                        # 1. Processar REFERÊNCIA
+                        # Process Reference
                         d_ref, val_ref, label_ref = get_profile_metric_data(df_ref, st.session_state.lat)
                         
                         if d_ref is None:
-                            st.error("Erro: Arquivo de referência vazio ou inválido.")
+                            st.error("Error: Invalid or empty reference file.")
                             st.stop()
 
-                        # 2. Preparar ALVO (Jimmy) - Forçando compatibilidade
+                        # Process Target
                         t_data = st.session_state.station_data[target_station]
                         
                         df_target = pd.DataFrame({'Depth': t_data['pressure'], 'Temperature': t_data['temperature']})
                         
-                        # Se a referência usou Gradiente, NÃO damos condutividade para o Jimmy,
+                        # Se a referência usou Gradiente, NÃO damos condutividade para o Profiler,
                         # forçando ele a usar Gradiente também.
                         if "Gradiente" not in label_ref:
                             if len(t_data['conductivity']) == len(t_data['pressure']):
                                 df_target['Conductivity'] = t_data['conductivity']
                         
-                        # 3. Processar ALVO
+                        # Process Target
                         d_tgt, val_tgt, label_tgt = get_profile_metric_data(df_target, st.session_state.lat)
                         
-                        st.success(f"Comparando: **{label_ref}**")
+                        st.success(f"Comparing using: **{label_ref}**")
 
                         # Salva vetores
                         st.session_state.tool_d_ref = d_ref
@@ -1643,32 +1789,29 @@ else:
                             st.session_state.ruler_tgt = 0.0
                             st.session_state.current_offset_val = 0.0
 
-                    # --- INTERFACE ---
+                    # INTERFACE
                     st.markdown("---")
                     col_graph, col_ctrl = st.columns([3, 1])
                     
                     with col_ctrl:
-                        st.subheader("Régua & Ajuste")
-                        st.markdown("Use o gráfico para ler os valores exatos dos picos.")
+                        st.subheader("Ruler & Adjustment")
+                        st.markdown("Use the graph to read exact peak values.")
                         
-                        # 1. Inputs da Régua
-                        val_ref = st.number_input("Pico VERDE (Ref):", value=st.session_state.get('ruler_ref', 0.0), step=0.1, format="%.2f")
-                        val_tgt = st.number_input("Pico VERMELHO (Jimmy):", value=st.session_state.get('ruler_tgt', 0.0), step=0.1, format="%.2f")
+                        val_ref = st.number_input("GREEN Peak (Reference):", value=st.session_state.get('ruler_ref', 0.0), step=0.1, format="%.2f")
+                        val_tgt = st.number_input("RED Peak (Profiler):", value=st.session_state.get('ruler_tgt', 0.0), step=0.1, format="%.2f")
                         
-                        # 2. Botão de Cálculo
-                        if st.button("Calcular e Testar Diferença"):
+                        if st.button("Calculate and Test Difference"):
                             diff = val_ref - val_tgt
                             st.session_state.current_offset_val = diff
                             st.rerun()
                         
                         st.markdown("---")
                         
-                        # 3. Input Final
                         final_offset = st.number_input(
-                            "**Offset Final (m):**",
+                            "**Final Offset (m):**",
                             value=st.session_state.current_offset_val, 
                             step=0.1, format="%.2f",
-                            help="Este é o valor que será aplicado."
+                            help="This is the value that will be permanently applied."
                         )
                         
                         # Sincroniza
@@ -1677,31 +1820,23 @@ else:
                             st.rerun()
 
                         st.markdown("---")
-                        # --- BOTÃO DE APLICAÇÃO (CORRIGIDO PARA BETA) ---
-                        if st.button("APLICAR OFFSET DEFINITIVO", type="primary"):
+                        if st.button("APPLY FINAL OFFSET", type="primary"):
                             # 1. Aplica nos dados principais (Pressure, Temp, Cond, Ed, Lu)
                             t_data = st.session_state.station_data[target_station]
                             
-                            # Soma o offset ao vetor mestre
                             new_p = t_data['pressure'] + st.session_state.current_offset_val
                             st.session_state.station_data[target_station]['pressure'] = new_p
                             
-                            # 2. Atualiza Beta (CORREÇÃO AQUI)
-                            # Não substituímos o index pelo vetor mestre (pois tamanhos podem variar).
-                            # Apenas somamos o valor escalar ao índice existente.
                             if t_data['beta_data'] is not None and not t_data['beta_data'].empty:
                                 t_data['beta_data'].index = t_data['beta_data'].index + st.session_state.current_offset_val
 
-                            # 3. Limpa camadas antigas
                             if target_station in st.session_state.profile_specific_layers:
                                 del st.session_state.profile_specific_layers[target_station]
                             
-                            # Salva string para nome do arquivo
                             st.session_state.last_applied_offset_str = f"{st.session_state.current_offset_val:+.2f}"
 
-                            st.toast(f"Corrigido: {st.session_state.current_offset_val:+.2f}m em todos os sensores!", icon="✅")
+                            st.toast(f"Corrected: {st.session_state.current_offset_val:+.2f}m em todos os sensores!")
                             
-                            # 4. Limpeza Crítica
                             keys_to_clear = [
                                 'tool_d_ref', 'tool_n2_ref', 
                                 'tool_d_tgt', 'tool_n2_tgt', 
@@ -1717,21 +1852,18 @@ else:
                     with col_graph:
                         if 'tool_d_ref' in st.session_state:
                             
-                            # --- CONTROLE DE VISUALIZAÇÃO ---
-                            # Deixamos marcado por padrão, pois resolve seu problema visual imediatamente
-                            norm_view = st.checkbox("Normalizar Curvas (0 a 1)", value=True, 
-                                                  help="Força as curvas a terem a mesma largura visual. Essencial se estiver comparando Gradiente com N2.")
                             
-                            # Ordenação (tira o zig-zag)
+                            norm_view = st.checkbox("Normalize Curves (0 to 1)", value=True, 
+                                                  help="Forces curves to have the same visual width. Essential when comparing Gradients with N2.")
+                            
                             d_r, n_r = st.session_state.tool_d_ref, st.session_state.tool_n2_ref
                             sort_r = np.argsort(d_r)
                             
                             d_t, n_t = st.session_state.tool_d_tgt, st.session_state.tool_n2_tgt
                             sort_t = np.argsort(d_t)
                             
-                            xlabel_txt = st.session_state.get('metric_label', "Métrica")
+                            xlabel_txt = st.session_state.get('metric_label', "Metric")
                             
-                            # Plota passando o parâmetro de normalização
                             fig = plot_interactive_n2_offset(
                                 d_r[sort_r], n_r[sort_r],
                                 d_t[sort_t], n_t[sort_t],
@@ -1741,22 +1873,19 @@ else:
                             )
                             st.plotly_chart(fig, use_container_width=True)
                         else:
-                            st.error("Erro nos dados.")
+                            st.error("Data error.")
             
-            # --- 3. EXPORTAR DADOS CORRIGIDOS ---
             st.markdown("---")
-            st.subheader("3. Exportar Dados Corrigidos")
+            st.subheader("3. Export Corrected Data")
             
             if target_station in st.session_state.station_data:
                 offset_suffix = st.session_state.get('last_applied_offset_str', 'corrected')
                 zip_filename = f"{target_station}_Depth_Offset_{offset_suffix}m.zip"
                 zip_buffer_fix = io.BytesIO()
                 
-                # Prepara o ZIP antes do botão
                 with zipfile.ZipFile(zip_buffer_fix, 'w', zipfile.ZIP_DEFLATED) as zf:
                     t_data = st.session_state.station_data[target_station]
                     
-                    # 1. Main Data
                     df_main = pd.DataFrame({'Depth_Corrected': t_data['pressure']})
                     if len(t_data['temperature']) == len(df_main): df_main['Temperature'] = t_data['temperature']
                     if len(t_data['conductivity']) == len(df_main): df_main['Conductivity'] = t_data['conductivity']
@@ -1776,30 +1905,28 @@ else:
                         zf.writestr(f"{target_station}_Beta_Offset_{offset_suffix}.csv", df_beta_save.to_csv(index=False).encode('utf-8'))
                 
                 st.download_button(
-                    label=f" Baixar Dados Corrigidos (.zip)",
+                    label=" Baixar Dados Corrigidos (.zip)",
                     data=zip_buffer_fix.getvalue(),
                     file_name=zip_filename,
                     mime="application/zip",
                     key="dl_fixed_btn"
                 )        
-   # ===================================================================
-    # TAB 1: CTD & RADIOMETRIC COMPARISON
-    # ===================================================================
+   
+    
+    # ------------------TAB 2: CTD & RADIOMETRIC COMPARISON ------------------
     with tab_ctd:
+
         st.header("External Probes Setup")
         
-        # --- SEÇÃO PROBE 1: CTD, Chl, Secchi ---
         st.subheader("Probe 1: CTD, Chl and Secchi")
         c1, c2 = st.columns(2)
         sep1 = c1.radio("Separator (P1)", [',', ';'], horizontal=True, key="s_p1_final")
         dec1 = c2.radio("Decimal (P1)", ['.', ','], horizontal=True, key="d_p1_final")
         
-        # O Uploader apenas carrega o dado para o estado
         up_p1 = st.file_uploader("Upload Probe 1 (Castaway/RBR/JFE)", type="csv", key=f"up_p1_{st.session_state.uploader_id}")
         if up_p1:
             st.session_state.external_probe_df = pd.read_csv(up_p1, sep=sep1, decimal=dec1)
         
-        # As configurações aparecem se o dado existir (mesmo após mudar de aba)
         if st.session_state.external_probe_df is not None:
             df1 = st.session_state.external_probe_df
             cols1 = ["None"] + list(df1.columns)
@@ -1819,7 +1946,6 @@ else:
 
         st.divider()
 
-        # --- SEÇÃO PROBE 2: CDOM e Bio-Sonda ---
         st.subheader("Probe 2: CDOM")
         c3, c4 = st.columns(2)
         sep2 = c3.radio("Separator (P2)", [',', ';'], horizontal=True, key="s_p2_final")
@@ -1840,7 +1966,6 @@ else:
 
         st.divider()
         
-        # --- COMPARAÇÃO ---
         st.subheader("Comparison Analysis (Profiler vs. Probe 1)")
         if st.session_state.external_probe_df is not None:
             casts = st.multiselect("Select casts to compare:", options=st.session_state.station_list, default=[st.session_state.selected_station], key="multi_comp")
@@ -1870,8 +1995,8 @@ else:
                                 
                                 all_stats.append({
                                     'Cast ID': cid, 'Match Found': str(match), 
-                                    'Temp R2': t_res['R2'], 'Temp RMSE': t_res['RMSE'], 'Temp Bias': t_res['Bias'],
-                                    'Sal R2': s_res['R2'], 'Sal RMSE': s_res['RMSE'], 'Sal Bias': s_res['Bias']
+                                    'Temp R2': t_res['R2'], 'Temp RMSE': t_res['RMSE'], 'Temp MAE': t_res['MAE'], 'Temp Bias': t_res['Bias'],
+                                    'Sal R2': s_res['R2'], 'Sal RMSE': s_res['RMSE'], 'Sal MAE': s_res['MAE'], 'Sal Bias': s_res['Bias']
                                 })
                                 merged['Cast ID'] = cid; all_merged_dfs.append(merged)
                     
@@ -1880,7 +2005,7 @@ else:
                         ((ax_t, ax_s), (ax_td, ax_sd)) = axes
                         colors = sns.color_palette("viridis", len(all_merged_dfs))
                         for i, df in enumerate(all_merged_dfs):
-                            ax_t.plot(df['Temperature_internal'], df['Depth'], color=colors[i], label=f"Jimmy {df['Cast ID'].iloc[0]}")
+                            ax_t.plot(df['Temperature_internal'], df['Depth'], color=colors[i], label=f"Profiler {df['Cast ID'].iloc[0]}")
                             ax_s.plot(df['Salinity_internal'], df['Depth'], color=colors[i])
                             ax_t.plot(df['Temperature_external'], df['Depth'], 'w--', alpha=0.7, lw=1.5)
                             ax_s.plot(df['Salinity_external'], df['Depth'], 'w--', alpha=0.7, lw=1.5)
@@ -1895,68 +2020,13 @@ else:
                         st.session_state.comparison_table = pd.DataFrame(all_stats).set_index('Cast ID')
                         plt.close(fig)
 
-        # MOSTRAR RESULTADOS SE EXISTIREM
         if st.session_state.get('fig_comp') is not None:
             st.pyplot(st.session_state.fig_comp)
             df_disp = st.session_state.comparison_table
             num_cols = [c for c in df_disp.columns if c != 'Match Found']
             st.dataframe(df_disp.style.apply(highlight_best).format({c: '{:.4f}' for c in num_cols}), use_container_width=True)
 
-        
-            
-            
-        # --- SECTION 3: DEPTH OFFSET CORRECTION ---
-        # st.divider()
-        # st.subheader("3. Depth Offset Correction (HyperPro Fix)")
-        # with st.expander("Fix Profiler Depth using External CTD (N² Peak Matching)"):
-        #     if st.session_state.get('external_probe_df') is None:
-        #         st.info("Upload the external reference CTD (C3/Castaway) in Section 1 to use this tool.")
-        #     else:
-        #         st.markdown("If the profiler (Jimmy) was tared in the water, its depth is wrong. This tool aligns the $N^2$ peak of the profiler with the true $N^2$ peak of the external CTD.")
-                
-        #         # Botão para calcular
-        #         if st.button("Calculate Depth Offset"):
-        #             ref_df = st.session_state.external_probe_df.copy()
-        #             ref_df['Depth'] = pd.to_numeric(ref_df[depth_col_ext], errors='coerce')
-        #             ref_df['Temp'] = pd.to_numeric(ref_df[temp_col_ext], errors='coerce')
-        #             ref_df['Sal'] = pd.to_numeric(ref_df[sal_col_ext], errors='coerce')
-
-        #             # Calcula Pico Referência
-        #             ref_p, ref_n2, ref_peak = find_n2_peak(ref_df['Depth'], ref_df['Temp'], ref_df['Sal'], st.session_state.lat)
-
-        #             # Calcula Pico Profiler
-        #             phys_prof = calculate_physical_properties(station_data, st.session_state.lon, st.session_state.lat)
-        #             prof_p, prof_n2, prof_peak = find_n2_peak(phys_prof['Depth'], phys_prof['Temperature'], phys_prof['Salinity'], st.session_state.lat)
-
-        #             if ref_peak and prof_peak:
-        #                 offset = ref_peak - prof_peak
-        #                 st.session_state.calculated_offset = offset
-                        
-        #                 # Plotar o resultado
-        #                 fig_off, ax_off = plt.subplots(figsize=(6, 4))
-        #                 ax_off.plot(ref_n2, ref_p, 'g-', label=f'External CTD (Peak: {ref_peak:.1f}m)')
-        #                 ax_off.plot(prof_n2, prof_p, 'r--', label=f'Jimmy Original (Peak: {prof_peak:.1f}m)')
-        #                 ax_off.axhline(ref_peak, color='g', linestyle=':', alpha=0.5)
-        #                 ax_off.axhline(prof_peak, color='r', linestyle=':', alpha=0.5)
-        #                 ax_off.set_title(f"Detected Offset: {offset:+.2f} meters", weight='bold')
-        #                 ax_off.set_ylabel("Depth (m)"); ax_off.set_xlabel(r"$N^2$")
-        #                 ax_off.invert_yaxis(); ax_off.grid(True); ax_off.legend()
-        #                 st.pyplot(fig_off)
-        #             else:
-        #                 st.error("Could not find a clear N² peak in one of the profiles.")
-
-        #         # Botão para APLICAR (Só aparece se o offset foi calculado)
-        #         if 'calculated_offset' in st.session_state:
-        #             calc_off = st.session_state.calculated_offset
-        #             st.success(f"Calculated Offset to apply to '{st.session_state.selected_station}': **{calc_off:+.2f} meters**")
-                    
-        #             if st.button("✅ APPLY Offset to this Profile"):
-        #                 # Adiciona o offset nos dados da memória
-        #                 st.session_state.station_data[st.session_state.selected_station]['pressure'] += calc_off
-        #                 # Limpa o offset da memória para não aplicar 2x
-        #                 del st.session_state.calculated_offset
-        #                 st.toast(f"Depth corrected by {calc_off:+.2f}m!", icon="✅")
-        #                 st.rerun() # Atualiza os gráficos do app inteiro
+    # ------------------TAB 3: ES ------------------
 
     with tab_es:
 
@@ -1986,7 +2056,7 @@ else:
         #    This gives us a DataFrame of only the usable spectra.
         valid_spectra_df = all_es_spectra.dropna(how='all', subset=[c for c in all_es_spectra.columns if c.startswith('X')])
         
-        # 2. The original count is now the number of VALID spectra.
+        # 2. The original count is  the number of VALID spectra.
         original_valid_count = len(valid_spectra_df)
         
         # 3. Calculate how many of these valid spectra were kept.
@@ -1996,14 +2066,12 @@ else:
         final_kept_valid_indices = valid_spectra_df.index.intersection(kept_indices)
         final_kept_count = len(final_kept_valid_indices)
     
-        # ------------------------------
         #   Summary metric 
-        # ------------------------------
         st.metric("Valid Spectra After Filtering", f"{final_kept_count} / {original_valid_count}")
     
-        # ------------------------------
+    
         #   Plot Es spectra 
-        # ------------------------------
+     
         fig_es, ax_es = plt.subplots(figsize=(8, 6))
         wavelength_values = [
             float(col.replace(WAVELENGTH_PREFIX, "")) for col in all_es_spectra.columns
@@ -2025,7 +2093,7 @@ else:
                                color="#888888", label=label)
                     added_keep = True
     
-        # Original median (calculated only on valid spectra now for accuracy)
+        # Original median (calculated only on valid spectra for accuracy)
         original_median_es = valid_spectra_df.median().values
         ax_es.plot(wavelength_values, original_median_es, lw=2.0, linestyle="--",
                    color="cyan", label=f"Original Median ({original_valid_count} valid spectra)")
@@ -2044,9 +2112,8 @@ else:
         ax_es.legend()
         st.pyplot(fig_es)
     
-        # ============================================================
+        
         #   FILTERING PANEL 
-        # ============================================================
         st.subheader("Es Stability Analysis & Hybrid Filtering")
         default_index = int(np.abs(np.array([float(c.replace("X", "")) for c in all_es_spectra.columns]) - 490).argmin())
         col_name_for_analysis = st.selectbox("Select reference wavelength for stability check:", options=list(all_es_spectra.columns), index=default_index)
@@ -2094,9 +2161,8 @@ else:
     
 
 
-    # ===================================================================
-    # TAB 3: CORE OPTICAL ANALYSIS
-    # ===================================================================
+    
+    # ------------------ TAB 4: CORE OPTICAL ANALYSIS ------------------
     with tab_core:
         st.header("Core Optical Analysis")
         top_row = st.columns(2)
@@ -2158,7 +2224,7 @@ else:
                 
             ax_n2.grid(True, linestyle='--')
             
-            # Add background shading for layers (Using your Seaborn colors)
+            # Add background shading for layers (Using Seaborn colors)
             for i, (layer_num, data) in enumerate(current_station_layers.items()):
                 ax_n2.axhspan(*data['range'], facecolor=layer_colors[i], alpha=0.3, zorder=0)
                 
@@ -2202,14 +2268,13 @@ else:
             st.pyplot(fig_log); st.session_state.fig_log = fig_log
     
         with bottom_row[1]:
-            # === NEW SELECTION BOX ===
+            # Aw Selection Box
             st.selectbox(
                 "Select Pure Water Model (Kw):", 
                 ["Morel & Maritorena (2001)", "Smith & Baker (1981)"],
                 index=0,
-                key="selected_kw_model"  # This key updates the session state automatically!
+                key="selected_kw_model"  # This key updates the session state automatically
             )
-            # =========================
 
             fig_k, ax_k = plt.subplots(figsize=plot_figsize)
             
@@ -2242,7 +2307,7 @@ else:
             st.pyplot(fig_k)
             st.session_state.fig_k = fig_k
             
-        # --- NEW SECTION: Lu/Ed RATIOS (SIDE-BY-SIDE) ---
+        # Lu/Ed RATIOS (SIDE-BY-SIDE). I think this may need adjustments
         st.markdown("---")
         st.subheader("5. In-Water Reflectance (Lu / Ed) Analysis")
         
@@ -2252,7 +2317,7 @@ else:
             else:
                 rat_col1, rat_col2 = st.columns(2)
                 
-                # === PLOT LEFT: TOP OF LAYER (Water Mass Interface) ===
+                #  PLOT LEFT: TOP OF LAYER (Water Mass Interface)
                 with rat_col1:
                     fig_rat_top, ax_rat_top = plt.subplots(figsize=(5.5, 4.0))
                     
@@ -2297,7 +2362,7 @@ else:
                     st.pyplot(fig_rat_top)
                     st.session_state.fig_rat_top = fig_rat_top
     
-                # === PLOT RIGHT: AVERAGE OF LAYER (Bulk Property) ===
+                # PLOT RIGHT: AVERAGE OF LAYER (Bulk Property)
                 with rat_col2:
                     fig_rat_avg, ax_rat_avg = plt.subplots(figsize=(5.5, 4.0))
                     
@@ -2366,7 +2431,7 @@ else:
                         # Calculate the in-water extrapolated value, Ed(0-)
                         ed0_minus = extrapolate_ed0_minus(station_data['pressure'], station_data['Ed_data'], z_min, z_max)
                         
-                        # --- THIS IS THE FIX: Plot both Ed(0-) and Ed(0+) ---
+                        # Plot both Ed(0-) and Ed(0+) 
                         if ed0_minus is not None:
                             # Plot the in-water value Ed(0-)
                             ax_ed_comp.plot(station_data['wavelengths'], ed0_minus, color='magenta', linestyle=':', label=f'Extrapolated Ed(0-) (from L{layer_num})', lw=2.0, zorder=18)
@@ -2396,12 +2461,13 @@ else:
                 - **Extrapolated Ed(0-) (Dotted Magenta):** The pure in-water surface value, before conversion. This line shows you exactly what the model predicts for just below the surface. It will always be slightly lower than `Ed(0+)`.
                 - **Near-Surface Ed (Dotted White):** The shallowest raw measurement from the profiler, for reference.
                 """)
-  # ===================================================================
-    # TAB 4: T-S DIAGRAM AND WATER MASS ANALYSIS (VERSÃO INTEGRAL)
-    # ===================================================================
+
+    # ------------------ TAB 5: T-S DIAGRAM AND WATER MASS ANALYSIS ------------------
     with tab_ts:
         st.header("T-S Diagram and Water Mass Analysis")
         
+        # Retrieves selected columns from session state for external probe data
+
         t_col = st.session_state.get('p1_t', "None")
         s_col = st.session_state.get('p1_s', "None")
         z_col = st.session_state.get('p1_z', "None")
@@ -2413,19 +2479,24 @@ else:
         col_plot, col_controls = st.columns([2, 1])
 
         with col_controls:
-            st.subheader("Configurações e Vínculos")
+            st.subheader("Configuration & Linkage")
             
+            # Logic to link external CTD data to the current profiler station
+
             if st.session_state.external_probe_df is not None:
                 if t_col != "None" and s_col != "None" and st_col != "None":
-                    st.markdown("### Vincular Dados do Probe")
+                    st.markdown("### Link External Probe Data")
                     opcoes_probe = list(st.session_state.external_probe_df[st_col].dropna().unique().astype(str))
+                    
+                    # Uses fuzzy matching to suggest the best external station match
+
                     sugestao = find_best_match(st.session_state.selected_station, opcoes_probe)
                     
                     try: idx_inicial = opcoes_probe.index(str(sugestao))
                     except: idx_inicial = 0
 
                     estacao_probe_manual = st.selectbox(
-                        "Selecione a Estação do Probe correspondente:",
+                        "Select corresponding External Station:",
                         options=opcoes_probe,
                         index=idx_inicial,
                         key="ts_manual_probe_select"
@@ -2435,6 +2506,8 @@ else:
                         st.session_state.external_probe_df[st_col].astype(str) == estacao_probe_manual
                     ].copy()
                     
+                    # Prepares the external T-S dataframe
+
                     df_ext_ts = pd.DataFrame({
                         'Temperature': pd.to_numeric(df_target_ext[t_col], errors='coerce'),
                         'Salinity': pd.to_numeric(df_target_ext[s_col], errors='coerce'),
@@ -2442,15 +2515,19 @@ else:
                     }).dropna(subset=['Temperature', 'Salinity'])
                     
                     ext_station_label = estacao_probe_manual
-                    st.success(f"Conectado: {ext_station_label}")
+                    st.success(f"Linked to: {ext_station_label}")
 
             st.divider()
 
-            with st.expander("Definição dos Vértices", expanded=True):
+            # WATER MASS VERTEX DEFINITION
+            with st.expander("Water Mass End-Member Definition", expanded=True):
+                st.info("Define the Temperature and Salinity of your regional water masses to calculate mixing fractions.")
                 c1, c2, c3 = st.columns(3)
                 for i in range(3):
-                    st.session_state.wm_names[i] = c1.text_input(f"Nome M{i+1}", value=st.session_state.wm_names[i], key=f"n{i}")
+                    st.session_state.wm_names[i] = c1.text_input(f"Name M{i+1}", value=st.session_state.wm_names[i], key=f"n{i}")
                 
+                # Standard vertices (e.g., Tropical Water, South Atlantic Central Water, Coastal Water)
+
                 wm1_s = c2.number_input("Sal 1", value=37.20, format="%.2f", key="s1")
                 wm1_t = c3.number_input("Temp 1", value=25.29, format="%.2f", key="t1")
                 wm2_s = c2.number_input("Sal 2", value=35.19, format="%.2f", key="s2")
@@ -2458,7 +2535,9 @@ else:
                 wm3_s = c2.number_input("Sal 3", value=34.36, format="%.2f", key="s3")
                 wm3_t = c3.number_input("Temp 3", value=27.54, format="%.2f", key="t3")
                 
-                if st.button("Executar Análise de Mistura", type="primary", use_container_width=True):
+                if st.button("Run Mixing Analysis", type="primary", use_container_width=True):
+                    
+                    # Triggers the barycentric coordinate calculation for both sensors
                     st.session_state.wm_vertices = [(wm1_s, wm1_t), (wm2_s, wm2_t), (wm3_s, wm3_t)]
                     st.session_state.mixture_results_profiler, st.session_state.mixture_df_profiler = analyze_mixture(
                         phys_props_df['Salinity'], phys_props_df['Temperature'], 
@@ -2472,17 +2551,17 @@ else:
                     st.rerun()
 
             if st.session_state.mixture_df_profiler is not None:
-                st.markdown("### Proporções Médias (%)")
-                df_avg = (st.session_state.mixture_df_profiler.mean() * 100).to_frame(name="Perfilador")
+                st.markdown("### Average Fractions (%)")
+                df_avg = (st.session_state.mixture_df_profiler.mean() * 100).to_frame(name="Profiler")
                 if st.session_state.mixture_df_external is not None:
-                    df_avg["Probe Externo"] = st.session_state.mixture_df_external.mean() * 100
+                    df_avg["External Probe"] = st.session_state.mixture_df_external.mean() * 100
                 st.dataframe(df_avg.style.format("{:.1f}%"), use_container_width=True)
 
         with col_plot:
             fig_ts, ax_ts = plt.subplots(figsize=(8, 8))
             df_int = phys_props_df[['Salinity', 'Temperature', 'Depth']].dropna()
             
-            # --- LÓGICA DE LIMITES AMPLIADA (DATA + VERTICES) ---
+            # DYNAMIC AXIS LIMITS (Data + Vertices)
             s_list = [df_int['Salinity'].min(), df_int['Salinity'].max()]
             t_list = [df_int['Temperature'].min(), df_int['Temperature'].max()]
             if df_ext_ts is not None and not df_ext_ts.empty:
@@ -2497,7 +2576,7 @@ else:
             s_min, s_max = min(s_list), max(s_list)
             t_min, t_max = min(t_list), max(t_list)
 
-            # Isopicnas
+            # ISOPYCNAL GRID (Density Lines)
             s_grid_ax = np.linspace(s_min - 1.0, s_max + 1.0, 100)
             t_grid_ax = np.linspace(t_min - 1.5, t_max + 1.5, 100)
             S_mesh, T_mesh = np.meshgrid(s_grid_ax, t_grid_ax)
@@ -2505,14 +2584,17 @@ else:
             cnt = ax_ts.contour(S_mesh, T_mesh, sigma_theta, colors=STYLE_CONFIG['gridcolor'], alpha=0.3, linestyles='dashed', zorder=1)
             ax_ts.clabel(cnt, inline=True, fontsize=8, fmt='%.1f')
             
-            # Dados
+            # DATA PLOTTING
             if df_ext_ts is not None and not df_ext_ts.empty:
                 ax_ts.scatter(df_ext_ts['Salinity'], df_ext_ts['Temperature'], c='grey', s=12, alpha=0.4, label=f'Probe: {ext_station_label}', zorder=2)
             
-            sc = ax_ts.scatter(df_int['Salinity'], df_int['Temperature'], c=df_int['Depth'], cmap='viridis_r', s=45, ec='black', lw=0.5, label='Perfilador (Jimmy)', zorder=3)
+            # Profiler data colored by depth to show vertical structure
+
+            sc = ax_ts.scatter(df_int['Salinity'], df_int['Temperature'], c=df_int['Depth'], cmap='viridis_r', s=45, ec='black', lw=0.5, label='Perfilador (Profiler)', zorder=3)
             cbar = plt.colorbar(sc, ax=ax_ts, pad=0.02)
             cbar.set_label('Profundidade (m)', weight='bold'); cbar.ax.invert_yaxis()
             
+            # MIXING TRIANGLE OVERLAY
             if st.session_state.wm_vertices:
                poly = Polygon(np.array(st.session_state.wm_vertices), closed=True, fill=False, edgecolor='cyan', ls='--', lw=2, zorder=4)
                ax_ts.add_patch(poly)
@@ -2521,58 +2603,59 @@ else:
             
             ax_ts.set_xlim(s_min - 0.3, s_max + 0.3)
             ax_ts.set_ylim(t_min - 0.5, t_max + 0.5)
-            ax_ts.set_xlabel("Salinidade Absoluta (g/kg)", weight='bold')
-            ax_ts.set_ylabel("Temperatura Conservativa (°C)", weight='bold')
-            ax_ts.set_title(f"Diagrama T-S: {st.session_state.selected_station}", weight='bold', pad=15)
+            ax_ts.set_xlabel("Absolute Salinity (g/kg)", weight='bold')
+            ax_ts.set_ylabel("Conservative Temperature (°C)", weight='bold')
+            ax_ts.set_title(f"T-S Diagram: {st.session_state.selected_station}", weight='bold', pad=15)
             ax_ts.grid(True, linestyle=':', alpha=0.2)
             ax_ts.legend(loc='lower right', fontsize=9, framealpha=0.8)
             
             st.pyplot(fig_ts)
             st.session_state.fig_ts = fig_ts
 
-        # --- REINCLUINDO OS GRÁFICOS VERTICAIS DE MISTURA ---
+        # VERTICAL MIXING PROFILES
         st.divider()
-        st.subheader("Perfis Verticais de Mistura (%)")
+        st.subheader("Vertical Mixing Profiles (%)")
         m1, m2 = st.columns(2)
         
         with m1:
-            st.markdown(f"**Perfilador ({st.session_state.selected_station})**")
+            st.markdown(f"**Profiler ({st.session_state.selected_station})**")
             if st.session_state.mixture_df_profiler is not None:
                 fig_vp, ax_vp = plt.subplots(figsize=(5, 7))
                 for name in st.session_state.wm_names: 
                     ax_vp.plot(st.session_state.mixture_df_profiler[name]*100, phys_props_df['Depth'], label=name, lw=2.5)
                 ax_vp.invert_yaxis()
-                ax_vp.set_xlabel("Proporção (%)")
-                ax_vp.set_ylabel("Profundidade (m)")
+                ax_vp.set_xlabel("Proportion (%)")
+                ax_vp.set_ylabel("Depth (m)")
                 ax_vp.set_xlim(0, 105)
                 ax_vp.legend()
                 ax_vp.grid(True, ls=':')
                 st.pyplot(fig_vp)
                 st.session_state.fig_vp = fig_vp
             else:
-                st.info("Execute a análise para ver o perfil do perfilador.")
+                st.info("Run mixture analysis to visualize.")
 
         with m2:
-            st.markdown(f"**Probe Externo ({ext_station_label})**")
+            
+            # Fraction vs Depth for the External Probe (e.g., C3/Castaway)
+            st.markdown(f"**External Probe ({ext_station_label})**")
             if st.session_state.mixture_df_external is not None and df_ext_ts is not None:
                 fig_ve, ax_ve = plt.subplots(figsize=(5, 7))
                 z_ext = df_ext_ts['Depth']
                 for name in st.session_state.wm_names: 
                     ax_ve.plot(st.session_state.mixture_df_external[name]*100, z_ext, label=name, lw=2.5)
                 ax_ve.invert_yaxis()
-                ax_ve.set_xlabel("Proporção (%)")
+                ax_ve.set_xlabel("Proportion (%)")
                 ax_ve.set_xlim(0, 105)
                 ax_ve.legend()
                 ax_ve.grid(True, ls=':')
                 st.pyplot(fig_ve)
                 st.session_state.fig_ve = fig_ve
             else:
-                st.info("Dados do Probe indisponíveis ou não calculados.")
+                st.info("External probe data unavailable or not calculated.")
                 
                 
-    #  ===================================================================
-    # TAB 5: BIO-OPTICAL MODELS
-    # ===================================================================
+    
+    # ------------------ TAB 6: BIO-OPTICAL MODELS ------------------
     with tab_models:
         st.header("Bio-Optical Model Estimations")
         
@@ -2589,7 +2672,8 @@ else:
             st.markdown("#### Manage Model Data")
             col1, col2 = st.columns(2)
             with col1:
-                # ---  Using an on_change callback ---
+                # Callback to handle historical model data loading
+
                 st.file_uploader(
                     "Load Master Model Data (CSV)", 
                     type="csv", 
@@ -2598,6 +2682,8 @@ else:
                 )
             
             with col2:
+                # Export current training data for future sessions
+
                 if not st.session_state.empirical_model_data.empty:
                     st.download_button(
                         label="Download Model Data (CSV)",
@@ -2614,7 +2700,7 @@ else:
                 st.markdown("**Current Data for Model:**")
                 
                 
-                # 1. Define the exact column order you want.
+                # 1. Define column order
                 desired_order = ['Station_ID', 'Kd(PAR)', 'Kd(490)','Layer']
                 
                 # 2. Create a new DataFrame with the columns in that order.
@@ -2630,13 +2716,16 @@ else:
                     if len(df_model) < 2:
                         st.error("At least two valid data points are required to build a model.")
                     else:
+                        # Performs linear regression to find site-specific relationship
+
                         slope, intercept, r_value, p_value, _ = linregress(df_model['Kd(PAR)'], df_model['Kd(490)'])
                         st.session_state.empirical_model_params = {'slope': slope, 'intercept': intercept, 'r2': r_value**2}
                         
                         st.success("Empirical model generated successfully!")
                         st.metric("Model Equation", f"Kd(490) = {slope:.4f} * Kd(PAR) + {intercept:.4f}")
                         st.metric("Model R²", f"{r_value**2:.4f}")
-    
+                        
+                        # Plot the empirical regression line
                         fig_model, ax = plt.subplots()
                         ax.scatter(df_model['Kd(PAR)'], df_model['Kd(490)'], ec='white', label='Data Points')
                         x_vals = np.array(df_model['Kd(PAR)'])
@@ -2646,11 +2735,13 @@ else:
                         ax.set_title("Empirical Model: Kd(PAR) vs. Kd(490)", weight='bold'); ax.grid(True, linestyle=':'); ax.legend()
                         st.pyplot(fig_model)
     
-        st.subheader("2. Generic Published Model (Morel & Maritorena, 2001)")
+        st.subheader("2. Literature Model (Morel & Maritorena, 2001)")
         with st.expander("Estimate Kd(490) from Kd(PAR) using Published Model"):
             st.markdown("""This model is most accurate for open-ocean (Case-1) waters and may differ from your site-specific model.""")
             kd_par_input = st.number_input("Enter a Kd(PAR) value (m⁻¹):", min_value=0.0, value=0.1, step=0.01, format="%.4f")
             if kd_par_input > 0:
+                # Estimate Chl-a and then Kd(490) using literature coefficients
+
                 estimated_c = estimate_chlorophyll_from_kdpar(kd_par_input)
                 estimated_kd490 = estimate_kd490_from_chlorophyll(estimated_c)
                 col1, col2 = st.columns(2)
@@ -2658,15 +2749,14 @@ else:
                 with col2: st.metric(label="Estimated Kd(490) (m⁻¹)", value=f"{estimated_kd490:.4f}")
   
    
-    # ===================================================================
-    # TAB 6: SECCHI & KD ANALYSIS (VERSÃO COM SUPORTE A MASTER EXTERNO)
-    # ===================================================================
+    # ------------------ TAB 7: SECCHI & KD ANALYSIS ------------------
+
     with tab_secchi:
         st.header("Secchi & Kd Analysis")
 
         # --- GERENCIAMENTO DE DADOS HISTÓRICOS (MASTER) ---
-        with st.expander("Gerenciar Banco de Dados da Campanha (Master CSV)", expanded=False):
-            st.info("Aqui você pode carregar dados de outras campanhas ou baixar os dados atuais para persistência.")
+        with st.expander("Manage Campaign Master Database (Historical Data)", expanded=False):
+            st.info("Merge data from different days or download the current progress.")
             col_m1, col_m2 = st.columns(2)
             
             with col_m1:
@@ -2675,25 +2765,25 @@ else:
                     type="csv", 
                     key="master_secchi_loader",
                     on_change=_handle_master_secchi_upload,
-                    help="Carregue um arquivo .csv salvo anteriormente para continuar sua análise histórica."
+                    help="Upload a previously saved .csv to continue historical analysis."
                 )
             
             with col_m2:
                 if not st.session_state.master_kd_secchi_df.empty:
                     csv_data = st.session_state.master_kd_secchi_df.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label="Baixar Base Master Atual (CSV)",
+                        label="Download Master Campaign CSV",
                         data=csv_data,
                         file_name="Master_Campaign_Secchi_Kd.csv",
                         mime='text/csv',
                         use_container_width=True
                     )
                 else:
-                    st.button("Baixar Base Master (Vazio)", disabled=True, use_container_width=True)
+                    st.button("Download base (empty) master csv", disabled=True, use_container_width=True)
 
         st.divider()
 
-        # --- SECTION 1: LIVE DATA PREVIEW ---
+        # LIVE DATA PREVIEW
         st.subheader("1. Active Station Preview")
         if st.session_state.get('comparison_kd_df') is not None:
             current_layer = st.session_state.results_df.iloc[0]['Layer'] if st.session_state.results_df is not None else "N/A"
@@ -2707,17 +2797,20 @@ else:
                 p_col2.metric(f"Kd(PAR) External ({current_layer})", f"{val_ext:.4f} m⁻¹" if not pd.isna(val_ext) else "No Data")
                 p_col3.metric(f"Kd(490) Profiler ({current_layer})", f"{val_490:.4f} m⁻¹")
             except:
-                st.info("Analise uma camada na Tab 4 para ver os dados aqui.")
+                st.info("Define layers in Tab 4 to see metrics.")
         else:
-            st.info("Configure as colunas de PAR na aba 'CTD Comparison' para habilitar a validação externa.")
+            st.info("Link an external probe in Tab 2 to enable cross-validation.")
     
         st.divider()
 
-        # --- SECTION 2: LINK & SAVE ---
+        # LINK & SAVE
         st.subheader("2. Link Secchi & Save to Campaign")
         
         secchi_input = np.nan
         if st.session_state.external_probe_df is not None:
+            
+            # Logic to automatically pull Secchi values from the external probe file based on station ID
+
             df_s = st.session_state.external_probe_df
             st_col = st.session_state.get('p1_st')
             val_col = st.session_state.get('p1_sec')
@@ -2730,28 +2823,30 @@ else:
 
                 c_vinc, c_met = st.columns([2, 1])
                 with c_vinc:
-                    vinc_estacao = st.selectbox("Vincular Secchi da Estação (Probe):", options=opcoes_probe, index=idx_sug, key="secchi_station_link_select")
+                    vinc_estacao = st.selectbox("Link Secchi from Station (External Probe):", options=opcoes_probe, index=idx_sug, key="secchi_station_link_select")
                 with c_met:
-                    entry_mode = st.radio("Método:", ["Automated/Link", "Manual"], horizontal=True)
+                    entry_mode = st.radio("Method:", ["Automated", "Manual"], horizontal=True)
 
                 df_row = df_s[df_s[st_col].astype(str) == vinc_estacao]
                 auto_val = pd.to_numeric(df_row.iloc[0][val_col], errors='coerce') if not df_row.empty else np.nan
 
                 if entry_mode == "Automated/Link":
                     if not pd.isna(auto_val):
-                        st.success(f"✅ Valor Encontrado: **{auto_val:.2f} m**")
+                        st.success(f"Value found: **{auto_val:.2f} m**")
                         secchi_input = auto_val
                     else:
-                        st.error("❌ Valor de Secchi vazio para esta estação.")
+                        st.error("No Secchi value found for this station ID.")
                 else:
-                    secchi_input = st.number_input("Digite o Secchi (m):", min_value=0.0, step=0.1, format="%.2f")
+                    secchi_input = st.number_input("Manually Enter Secchi Depth (m):", min_value=0.0, step=0.1, format="%.2f")
             else:
-                secchi_input = st.number_input("Digite o Secchi (m):", min_value=0.0, step=0.1, format="%.2f")
+                secchi_input = st.number_input("Manually Enter Secchi Depth (m):", min_value=0.0, step=0.1, format="%.2f")
         else:
-            secchi_input = st.number_input("Digite o Secchi (m):", min_value=0.0, step=0.1, format="%.2f")
+            secchi_input = st.number_input("Manually Enter Secchi Depth (m):", min_value=0.0, step=0.1, format="%.2f")
 
-        # --- BOTÃO DE COMMIT (SALVAR NO MASTER) ---
+        
         if st.button("Commit Current Station to Master Database", type="primary", use_container_width=True):
+            
+            # Saves a single station's optical and Secchi data to the cumulative campaign dataframe
             if not pd.isna(secchi_input) and st.session_state.results_df is not None:
                 layer_key = st.session_state.results_df.iloc[0]['Layer']
                 new_row = pd.DataFrame({
@@ -2765,37 +2860,32 @@ else:
                 # Mescla e evita duplicatas na sessão
                 m_sec = st.session_state.master_kd_secchi_df
                 st.session_state.master_kd_secchi_df = pd.concat([m_sec[m_sec['Station_ID'] != st.session_state.selected_station], new_row], ignore_index=True)
-                st.toast(f"Estação {st.session_state.selected_station} adicionada ao Master!", icon="✅")
+                st.toast(f"Station {st.session_state.selected_station} saved!")
             else:
-                st.error("Certifique-se de que os dados de Kd e Secchi são válidos.")
+                st.error("Double-check for Kd and Secchi data validity ")
 
         st.divider()
 
-        # --- SECTION 3: DATAFRAME E REGRESSÃO ---
         st.subheader("3. Campaign Master Database")
         df_master = st.session_state.master_kd_secchi_df
         if not df_master.empty:
             st.dataframe(df_master.style.format({'Secchi': '{:.2f}', 'Kd(PAR)_Profiler': '{:.4f}', 'Kd(490)_Profiler': '{:.4f}', 'Kd(PAR)_External': '{:.4f}'}), use_container_width=True)
             
-            # --- SEÇÃO 4: ANÁLISE DE REGRESSÃO COMPARATIVA ---
             st.subheader("4. Regression Analysis: Secchi vs. Kd")
             
             fig_secchi, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
             
-            # --- GRÁFICO 1: Kd(PAR) - COMPARATIVO (JIMMY VS PROBE) ---
-            # 1. Dados do Jimmy
-            d_jimmy = df_master[['Secchi', 'Kd(PAR)_Profiler']].dropna()
-            if not d_jimmy.empty:
-                ax1.scatter(d_jimmy['Secchi'], d_jimmy['Kd(PAR)_Profiler'], 
-                            color='#00E5FF', ec='white', s=100, marker='o', label='Jimmy (Profiler)', zorder=5)
+            d_Profiler = df_master[['Secchi', 'Kd(PAR)_Profiler']].dropna()
+            if not d_Profiler.empty:
+                ax1.scatter(d_Profiler['Secchi'], d_Profiler['Kd(PAR)_Profiler'], 
+                            color='#00E5FF', ec='white', s=100, marker='o', label='Profiler (Profiler)', zorder=5)
                 
-                if len(d_jimmy) >= 2 and d_jimmy['Secchi'].nunique() > 1:
-                    m_j = get_regression_metrics(d_jimmy['Secchi'], d_jimmy['Kd(PAR)_Profiler'])
-                    x_fit = np.array([d_jimmy['Secchi'].min(), d_jimmy['Secchi'].max()])
+                if len(d_Profiler) >= 2 and d_Profiler['Secchi'].nunique() > 1:
+                    m_j = get_regression_metrics(d_Profiler['Secchi'], d_Profiler['Kd(PAR)_Profiler'])
+                    x_fit = np.array([d_Profiler['Secchi'].min(), d_Profiler['Secchi'].max()])
                     ax1.plot(x_fit, m_j['Intercept'] + m_j['Slope'] * x_fit, 
-                             '--', color='#00E5FF', alpha=0.8, label=f'Fit Jimmy (R²={m_j["R²"]:.2f})')
+                             '--', color='#00E5FF', alpha=0.8, label=f'Fit Profiler (R²={m_j["R²"]:.2f})')
 
-            # 2. Dados do Probe Externo
             d_ext = df_master[['Secchi', 'Kd(PAR)_External']].dropna()
             if not d_ext.empty:
                 ax1.scatter(d_ext['Secchi'], d_ext['Kd(PAR)_External'], 
@@ -2813,11 +2903,10 @@ else:
             ax1.legend(loc='upper right', fontsize=9, framealpha=0.6)
             ax1.grid(True, ls=':', alpha=0.4)
 
-            # --- GRÁFICO 2: Kd(490) - APENAS JIMMY (OU COMPARATIVO SE TIVER DADO) ---
             d_490 = df_master[['Secchi', 'Kd(490)_Profiler']].dropna()
             if not d_490.empty:
                 ax2.scatter(d_490['Secchi'], d_490['Kd(490)_Profiler'], 
-                            color='#39FF14', ec='white', s=100, marker='s', label='Kd(490) Jimmy', zorder=5)
+                            color='#39FF14', ec='white', s=100, marker='s', label='Kd(490) Profiler', zorder=5)
                 
                 if len(d_490) >= 2 and d_490['Secchi'].nunique() > 1:
                     m4 = get_regression_metrics(d_490['Secchi'], d_490['Kd(490)_Profiler'])
@@ -2834,9 +2923,8 @@ else:
             plt.tight_layout()
             st.pyplot(fig_secchi)
             
-            # --- AVISO SOBRE DADOS INSUFICIENTES ---
             if df_master['Secchi'].nunique() <= 1:
-                st.warning("⚠️ A linha de regressão (R²) só aparecerá quando houver pelo menos 2 estações com profundidades de Secchi **diferentes**.")
+                st.warning("Regression line will appear once you have at least 2 stations with different Secchi depths.")
                 
     # st.subheader("Generate L3 Ensemble Average Product")
     # ensemble_casts = st.multiselect("Select validated profiles to include in ensemble average:", options=st.session_state.comparison_table.index, default=list(st.session_state.comparison_table.index))
@@ -2940,9 +3028,8 @@ else:
     #         st.download_button(label="Download Ensemble Package", data=zip_buffer_ens.getvalue(), file_name=f"{base_name}.zip", mime="application/zip", key="download_ensemble")
 
 
-    # ===================================================================
-    # TAB 8: SPECTRAL CONVOLUTION (FIXED INDENTATION & BLEEDING)
-    # ===================================================================
+    
+    # ------------------ TAB 8: SPECTRAL CONVOLUTION ------------------
     with tab_convolution:
         st.header("Spectral Convolution for Satellite Matching")
         
@@ -2984,7 +3071,7 @@ else:
                         st.session_state.convolved_sensor_name = selected_sensor
                         st.rerun()
 
-            # --- PART 3: RESULTS (NOW PROPERLY INDENTED INSIDE TAB) ---
+            # RESULTS 
             if 'convolved_rrs_df' in st.session_state and st.session_state.convolved_rrs_df is not None:
                 st.markdown("---")
                 df_res = st.session_state.convolved_rrs_df
@@ -3019,13 +3106,11 @@ else:
                 
                 
                 
-    # ===================================================================
-    # TAB 9: MASTER DATA & REPORTS (COM CTD METRICS NO L3)
-    # ===================================================================
+    
+    # ------------------ TAB 9: MASTER DATA & REPORTS ------------------
     with tab_report:
         st.header("Campaign Management & L3 Data Products")
         
-        # --- STEP 0: CENTRAL DE CARREGAMENTO ---
         with st.expander("Step 0: Load Historical Master Tables", expanded=False):
             st.info("Suba seus arquivos Master (.csv) para mesclar dados de diferentes dias ou campanhas.")
             
@@ -3042,31 +3127,36 @@ else:
 
         st.divider()
 
-        # --- 1. GLOBAL CAMPAIGN DATABASE ---
         st.subheader("1. Global Campaign Database Status")
         
+        # Summary metrics of the cumulative database
+
         n_rad = st.session_state.master_vertical_radiometry['Station_ID'].nunique() if not st.session_state.master_vertical_radiometry.empty else 0
         n_sec = st.session_state.master_kd_secchi_df['Station_ID'].nunique() if not st.session_state.master_kd_secchi_df.empty else 0
         n_hyp = st.session_state.master_hyper_rrs_df['Station_ID'].nunique() if not st.session_state.master_hyper_rrs_df.empty else 0
         
         m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("Estações (Radiometria)", n_rad)
-        m_col2.metric("Estações (Secchi/Kd)", n_sec)
-        m_col3.metric("Estações (Rrs Spectra)", n_hyp)
+        m_col1.metric("Stations (Radiometry)", n_rad)
+        m_col2.metric("Stations (Secchi/Kd)", n_sec)
+        m_col3.metric("Stations (Rrs Spectra)", n_hyp)
 
         col_agg, col_dl = st.columns(2)
         
         if col_agg.button("Snapshot Current Station to Masters", use_container_width=True, type="primary"):
+            
+            # Triggers the aggregation of all current results into the master tables
             if derived_products: 
                 aggregate_to_vertical_masters(st.session_state.selected_station, station_data, derived_products)
-                st.success(f"Snapshot de '{st.session_state.selected_station}' salvo na memória!")
+                st.success(f"'{st.session_state.selected_station}' Snapshot saved in memory")
                 st.rerun() 
             else:
-                st.error("Erro: Analise as camadas na 'Tab: Core Optical Analysis' primeiro.")
+                st.error("Analyze layers in 'Core Optical Analysis' first.")
         
         if col_dl.button("Export Full Campaign ZIP", use_container_width=True):
+            
+            # Packages all master tables into one ZIP for archival
             if st.session_state.master_vertical_radiometry.empty:
-                st.error("Banco de dados vazio.")
+                st.error("Database is empty.")
             else:
                 buf = io.BytesIO()
                 with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -3078,15 +3168,16 @@ else:
                     if not st.session_state.empirical_model_data.empty:
                         zf.writestr("6_Master_BioOptical_Model.csv", st.session_state.empirical_model_data.to_csv(index=False))
                 
-                st.download_button("Baixar Banco de Dados Consolidado (.zip)", buf.getvalue(), "Campaign_Full_Database.zip", use_container_width=True)
+                st.download_button("Download ZIP Package", buf.getvalue(), "Campaign_Full_Database.zip", use_container_width=True)
 
         st.divider()
 
-        # --- 2. PROFESSIONAL L3 STATION PACKAGE ---
+        # L3 STATION PACKAGE ---
         st.subheader(f"2. Individual L3 Package: {st.session_state.selected_station}")
-        st.info("Gera um pacote completo com dados físicos, óticos, misturas, validações e gráficos.")
+        st.info("Build Detailed L3 Package (ZIP)")
         
-        if st.button("Build Professional L3 Station Package", use_container_width=True, key="btn_l3_pro"):
+        # Generates a comprehensive per-station folder with all physics, optics, and plots
+        if st.button("Build L3 Station Package", use_container_width=True, key="btn_l3_pro"):
             station_id = st.session_state.selected_station
             base = f"C_{station_id}_L3"
             l3_buf = io.BytesIO()
@@ -3097,11 +3188,12 @@ else:
             
             with zipfile.ZipFile(l3_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
                 
-                # --- A. PROFILER JIMMY ---
+                # Export Physics
+                # Profiler
                 df_phys_prof = calculate_physical_properties(s_data, st.session_state.lon, st.session_state.lat)
                 if st.session_state.mixture_df_profiler is not None:
                     df_phys_prof = pd.concat([df_phys_prof.reset_index(drop=True), st.session_state.mixture_df_profiler.reset_index(drop=True)], axis=1)
-                zf.writestr(f"{base}/1_Profiler_Jimmy/PHYS_Data_Jimmy.csv", df_phys_prof.to_csv(index=False))
+                zf.writestr(f"{base}/1_Profiler_Profiler/PHYS_Data_Profiler.csv", df_phys_prof.to_csv(index=False))
 
                 df_opt_prof = pd.DataFrame({'Depth_m': s_data['pressure']})
                 with np.errstate(divide='ignore', invalid='ignore'):
@@ -3110,9 +3202,9 @@ else:
                     df_opt_prof[f'Ed_{wl}'] = s_data['Ed_data'][:, i]
                     df_opt_prof[f'Lu_{wl}'] = s_data['Lu_data'][:, i]
                     df_opt_prof[f'LuEd_{wl}'] = lued[:, i]
-                zf.writestr(f"{base}/1_Profiler_Jimmy/OPTICAL_Profiles_Jimmy.csv", df_opt_prof.to_csv(index=False))
+                zf.writestr(f"{base}/1_Profiler_Profiler/OPTICAL_Profiles_Profiler.csv", df_opt_prof.to_csv(index=False))
 
-                # --- B. EXTERNAL PROBE ---
+                # External Probe
                 if st.session_state.external_probe_df is not None:
                     st_col = st.session_state.p1_st
                     match = find_best_match(station_id, st.session_state.external_probe_df[st_col].dropna().unique())
@@ -3120,7 +3212,7 @@ else:
                         df_ext_st = st.session_state.external_probe_df[st.session_state.external_probe_df[st_col].astype(str) == str(match)].copy()
                         zf.writestr(f"{base}/2_External_Probe/PHYS_Data_External_Probe_Original.csv", df_ext_st.to_csv(index=False))
 
-                # --- C. DERIVED OPTICAL PRODUCTS ---
+                # Export Raw and derived Optics
                 if derived_products:
                     zf.writestr(f"{base}/3_Derived_Optical_Products/AOP_Summary_Metrics.csv", derived_products['results_df'].to_csv(index=False))
                     zf.writestr(f"{base}/3_Derived_Optical_Products/Rrs_PROFILER_Propagated.csv", derived_products['rrs_df_export'].to_csv(index=False))
@@ -3131,26 +3223,25 @@ else:
                     if 'convolved_rrs_df' in st.session_state and st.session_state.convolved_rrs_df is not None:
                         zf.writestr(f"{base}/3_Derived_Optical_Products/Rrs_SATELLITE_{st.session_state.convolved_sensor_name}_Convolved.csv", st.session_state.convolved_rrs_df.to_csv(index=False))
 
-                # --- D. VALIDATION METRICS (NOVA SEÇÃO) ---
-                # Salva as estatísticas de CTD (Tab 1)
+                # VALIDATION METRICS 
                 if st.session_state.get('comparison_table') is not None:                    
                     zf.writestr(f"{base}/4_Validation_and_Plots/CTD_Comparison_Metrics_ALL_CASTS.csv", st.session_state.comparison_table.to_csv())
 
-                # --- E. PLOTS PNG ---
+                # Save all current session plots as high-res PNGs
                 plots_to_save = {
                     "1_Stratification": st.session_state.get('fig_n2'),
                     "2_Rrs_Spectra": st.session_state.get('fig_rrs'),
                     "3_Log_Profiles": st.session_state.get('fig_log'),
                     "4_K_Spectra": st.session_state.get('fig_k'),
                     "5_TS_Diagram": st.session_state.get('fig_ts'),
-                    "6_Water_Mass_Jimmy": st.session_state.get('fig_vp'),
+                    "6_Water_Mass_Profiler": st.session_state.get('fig_vp'),
                     "7_Water_Mass_External": st.session_state.get('fig_ve'),
                     "8_CTD_Validation": st.session_state.get('fig_comp')
                 }
                 for name, fig in plots_to_save.items():
                     if fig: zf.writestr(f"{base}/4_Validation_and_Plots/Plots_PNG/{name}.png", fig_to_buffer(fig).getvalue())
 
-                # --- F. SUMMARY REPORT ---
+                # Generate the final Summary Report text
                 report_txt = generate_summary_report(
                     station_id, current_station_layers, 
                     st.session_state.results_df, st.session_state.kd_par_df, 
@@ -3159,15 +3250,15 @@ else:
                 )
                 zf.writestr(f"{base}/Summary_Report.txt", report_txt)
                 
-            st.download_button(f"Baixar Pacote L3: {station_id}", l3_buf.getvalue(), f"{base}.zip", mime="application/zip", use_container_width=True)
+            st.download_button(f"Download L3 Package for: {station_id}", l3_buf.getvalue(), f"{base}.zip", mime="application/zip", use_container_width=True)
             
-    # ===================================================================
-    # TAB 8: FORMULAS & METHODS
-    # ===================================================================
+    
+    # ------------------ TAB 10: FORMULAS & METHODS ------------------
     with tab_formulas:
         st.header("Formulas & Methods"); st.subheader("1. Apparent Optical Properties (Kd & klu)")
         st.markdown(r"""The diffuse attenuation coefficients for downwelling irradiance ($K_d$) and upwelling radiance ($K_u$) describe how rapidly light is attenuated with depth. They are derived from the Beer-Lambert Law, which states:$$ I(z) = I(0) \cdot e^{-K \cdot z} $$Where $I(z)$ is the intensity at depth $z$, and $I(0)$ is the intensity at the surface. By taking the natural logarithm, this becomes a linear relationship:$$ \ln(I(z)) = \ln(I(0)) - K \cdot z $$This app calculates $K_d$ and $K_u$ for each wavelength ($\lambda$) within a user-selected depth layer by performing a linear regression (using 'np.polyfit') on the natural log of the radiometric data versus depth. The coefficient $K$ is the negative of the slope of this regression. **Reference:** Mobley, C. D. (1994). *Light and Water: Radiative Transfer in Natural Waters*. Academic Press.""")
-        st.subheader("2. Remote Sensing Reflectance ($R_{rs}$)"); st.markdown(r"""Remote sensing reflectance is the ratio of water-leaving radiance ($L_w$) to the downwelling irradiance ($E_d$) just above the surface:$$ R_{rs}(\lambda) = \frac{L_w(\lambda)}{E_d(\lambda, 0^+)} $$The water-leaving radiance ($L_w$) is estimated from the upwelling radiance just below the surface ($L_u(\lambda, 0^-)$) by accounting for the transmission of light across the air-sea interface. This app uses a standard approximation where the transmission factor is '{LW_TRANSMISSION_FACTOR}':$$ L_w \approx {LW_TRANSMISSION_FACTOR} \cdot L_u(0^-) $$This coefficient approximates the term $\frac{{1- \rho(\theta, n)}}{{n^2}}$, where $\rho$ is the Fresnel reflectance and $n$ is the refractive index of water. **Propagated $R_{rs}$** is calculated by using the layer-specific $K_d$ and $K_u$ to propagate the radiometric values from the top of the selected layer ($z$) back to the surface:$$ E_d(0^+) = E_d(z) \cdot e^{{K_d \cdot z}} $$$$ L_u(0^-) = L_u(z) \cdot e^{{K_u \cdot z}} $$These surface-equivalent values are then used to calculate the final propagated $R_{rs}$.""")
+        st.subheader("2. Remote Sensing Reflectance ($R_{rs}$)"); st.markdown(f"""Remote sensing reflectance is the ratio of water-leaving radiance ($L_w$) to the downwelling irradiance ($E_d$) just above the surface: $$ R_{{rs}}(\lambda) = \\frac{{L_w(\lambda)}}{{E_d(\lambda, 0^+)}} $$        The water-leaving radiance ($L_w$) is estimated from the upwelling radiance just below the surface ($L_u(\lambda, 0^-)$) by accounting for the transmission of light across the air-sea interface. This app uses a standard approximation where the transmission factor is **{LW_TRANSMISSION_FACTOR}**:        $$ L_w \\approx {LW_TRANSMISSION_FACTOR} \\cdot L_u(0^-) $$        This coefficient approximates the term $\\frac{{1- \\rho(\\theta, n)}}{{n^2}}$, where $\\rho$ is the Fresnel reflectance and $n$ is the refractive index of water.         **Propagated $R_{{rs}}$** is calculated by using the layer-specific $K_d$ and $K_u$ to propagate the radiometric values from the top of the selected layer ($z$) back to the surface: $$ E_d(0^+) = E_d(z) \\cdot e^{{K_d \\cdot z}} $$        $$ L_u(0^-) = L_u(z) \\cdot e^{{K_u \\cdot z}} $$        These surface-equivalent values are then used to calculate the final propagated $R_{{rs}}$.
+        """)
         st.subheader("3. Stratification (Brunt-Väisälä Frequency)"); st.markdown(r"""The stratification of the water column is represented by the Brunt-Väisälä frequency squared, $N^2$. A high $N^2$ value indicates strong stratification. This value is calculated using the Gibbs SeaWater (GSW) Oceanographic Toolbox, which implements the Thermodynamic Equation of Seawater 2010 (TEOS-10). **Reference:** McDougall, T. J., & Barker, P. M. (2011). *Getting started with TEOS-10 and the Gibbs Seawater (GSW) Oceanographic Toolbox*. SCOR/IAPSO Working Group 127, ISBN 978-0-646-55606-5.""")
         st.subheader("4. Photosynthetically Available Radiation (PAR & Kd(PAR))"); st.markdown(r"""Photosynthetically Available Radiation (PAR) is the flux of photons between 400 and 700 nm. It is calculated by converting the energy of the downwelling irradiance $E_d(\lambda)$ from energy units ($\mu W/cm^2/nm$) to quanta units ($\mu mol\ photons/m^2/s/nm$) and then integrating over the wavelength range. This app follows the protocol from the ProSoft manual:$$ PAR(z) = \int_{{400nm}}^{{700nm}} E_q(\lambda, z) d\lambda $$Where $E_q$ is the spectral irradiance in quanta units. The attenuation coefficient for PAR, $K_d(PAR)$, is then calculated for each user-defined layer by performing a log-linear regression on the PAR profile versus depth, identical to the method used for spectral $K_d(\lambda)$.""")
 
