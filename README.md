@@ -83,7 +83,7 @@ After uploading the requested profiler files, click process files and the follow
 
 L3 Station Package
 
--	Summary_report.txt: Metadata, mais AOPs, and AVW
+-	Summary_report.txt: Metadata, main AOPs, and AVW
 -	1_Profiler_Jimmy: Physical data (TEOS-10) and full vertical hyperspectral profiles
 -	2_External_Probe: Raw data from the validation probe (chla, CDOM, Secchi, PAR, etc.)
 -	3_Derived Optical Products: Attenuation metrics, propagated Rrs, and convolved satellite bands
