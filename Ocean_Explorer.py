@@ -36,6 +36,8 @@ from scipy.integrate import simpson # Imports Simpson integral for spectral conv
 # ----------------------------- STYLE AND CONFIGURATIONS -----------------------------
 # Section to define the visual appearance of the plots and the Streamlit page.
 
+st.set_page_config(layout="wide")
+
 # Dictionary centralizing color definitions to create a consistent visual theme (dark mode).
 
 STYLE_CONFIG = {
