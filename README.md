@@ -98,9 +98,41 @@ Master database files (CSVs)
 5.	Summary_Secchi_Kd: Cumulative cross-validation table for Secchi and Ks
 6.	Master_bio-optical_Model: Empirical data used to train the bio-optical models
 
-
-
 Note: For the master database to remain consistent, always load your "Previous Master" files at the start of Tab 9 when processing new campaign days. This ensures data is appended correctly.
+
+---
+
+## Installation & Setup
+
+### Option A: Using Conda (Recommended)
+
+1. **Clone the repository:**
+   git clone https://github.com/AquarelaCebimar/Ocean_Explorer.git
+   cd Ocean_Explorer
+   
+2. Create and activate the Conda environment:
+   conda env create -f environment.yml
+   conda activate Ocean_Optics_Explorer
+
+3. Launch the application:
+   streamlit run Ocean_Explorer.py
+
+### Option B: Using Standard Python (pip)
+1.  **Create a virtual environment:**
+
+   python -m venv venv
+
+# On Windows:
+   venv\Scripts\activate
+# On Linux/macOS:
+   source venv/bin/activate
+
+2. **Install dependencies:**
+   pip install -r requirements.txt
+
+3. **Launch the application:**
+   streamlit run Ocean_Explorer.py
+
 
 
 
