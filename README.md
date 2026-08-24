@@ -100,6 +100,13 @@ Master database files (CSVs)
 
 Note: For the master database to remain consistent, always load your "Previous Master" files at the start of Tab 9 when processing new campaign days. This ensures data is appended correctly.
 
+
+Expected Input Structure
+1.  The application ingests pre-calibrated Level-2S CSV files. Ensure your directory contains:
+2.  In-water profiler files containing keywords: temp, cond, ed, lu
+3.  Optional surface reference: es
+4.  Optional backscattering proxy: beta
+
 ---
 
 ## Installation & Setup
