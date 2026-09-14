@@ -7,3 +7,4 @@ seaborn>=0.12.0
 gsw>=3.6.0
 scikit-learn>=1.2.0
 plotly>=5.15.0
+netCDF4>=1.6.0
