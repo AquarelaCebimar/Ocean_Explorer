@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use Ocean Optics Explorer in your work, please cite it using the metadata below."
+type: software
+title: "Ocean Optics Explorer"
+version: "0.1.0-beta"
+doi: "10.5281/zenodo.21495851"
+url: "https://github.com/AquarelaCebimar/Ocean-Color-Explorer"
+abstract: >-
+  Ocean Optics Explorer is a scientific application for processing, visualizing,
+  and analysing in-water optical and hydrographic profiles, including
+  remote-sensing reflectance and satellite spectral convolution.
+authors:
+  - given-names: "Ana Paula"
+    family-names: "Piazza Forgiarini"
+    affiliation: "Aquarela Laboratory, CEBIMar/USP"
+  - given-names: "Áurea Maria"
+    family-names: "Ciotti"
+    affiliation: "Aquarela Laboratory, CEBIMar/USP"
+keywords:
+  - ocean color
+  - remote sensing reflectance
+  - hyperspectral data
+  - PACE OCI
+  - marine optics
+  - hydrography
