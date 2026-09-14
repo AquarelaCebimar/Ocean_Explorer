@@ -1,4 +1,4 @@
-# Ocean_Explorer V1.beta
+# Ocean_Color_Explorer V1.beta
 
 Ocean Optics Explorer - User Manual and Documentation
 
